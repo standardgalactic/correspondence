@@ -1,0 +1,54 @@
+
+================================================================
+Flyxion correction run - 2026-11-12 07:26:15
+Backup snapshot: backup_20261112_072615
+================================================================
+
+[substitution] ./100,000_Zero_Hallucination_Emails_Without_LLMs.txt
+  L42: But Flexion's system requires literally none of that.
+  L73: Phyxian's message plan is like the architect's blueprint.
+  L243: FlyAction system has four layers.
+  L432: But Flexion's system demands two distinct certificates just to allow that one specific phrase.
+  L635: Let's look at what happened when Flaxian actually turned the machine on and ran it at scale.
+  (5 line(s) changed)
+
+[substitution] ./100,000_Zero_Hallucination_Emails_Without_LLMs.tsv
+  L43: 136300	140320	But Flexion's system requires literally none of that.
+  L74: 235260	238000	Phyxian's message plan is like the architect's blueprint.
+  L244: 886520	887960	FlyAction system has four layers.
+  L433: 1602040	1607240	But Flexion's system demands two distinct certificates just to allow that one specific phrase.
+  L636: 2317460	2323220	Let's look at what happened when Flaxian actually turned the machine on and ran it at scale.
+  (5 line(s) changed)
+
+[substitution] ./100,000_Zero_Hallucination_Emails_Without_LLMs.vtt
+  L127: But Flexion's system requires literally none of that.
+  L220: Phyxian's message plan is like the architect's blueprint.
+  L730: FlyAction system has four layers.
+  L1297: But Flexion's system demands two distinct certificates just to allow that one specific phrase.
+  L1906: Let's look at what happened when Flaxian actually turned the machine on and ran it at scale.
+  (5 line(s) changed)
+
+[substitution] ./100,000_Zero_Hallucination_Emails_Without_LLMs.json
+  L1: [JSON content omitted]
+  (1 line(s) changed)
+
+[substitution] ./100,000_Zero_Hallucination_Emails_Without_LLMs.srt
+  L167: But Flexion's system requires literally none of that.
+  L291: Phyxian's message plan is like the architect's blueprint.
+  L971: FlyAction system has four layers.
+  L1727: But Flexion's system demands two distinct certificates just to allow that one specific phrase.
+  L2539: Let's look at what happened when Flaxian actually turned the machine on and ran it at scale.
+  (5 line(s) changed)
+
+==== Candidate Variants (none found) ====
+
+==== Summary ====
+Files scanned        : 5
+Files updated        : 5
+Files unchanged      : 0
+Unique candidates    : 0
+Elapsed time         : 18s
+
+================================================================
+Run complete at 2026-11-12 07:26:33
+================================================================

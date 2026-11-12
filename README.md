@@ -1,5 +1,9 @@
 # Symbolic Correspondence Generator
 
+[Technical Specification](https://standardgalactic.github.io/correspondence/correspondence-spec.pdf)
+
+* [100,000 Zero Hallucination Emails Without LLMs](https://standardgalactic.github.io/correspondence/)
+
 The Symbolic Correspondence Generator is a research prototype for composing message drafts from explicit project goals, recipient evidence, and author preferences. It represents each draft first as a message plan, then realizes that plan through a typed grammar. This separation makes it possible to vary the wording while preserving the purpose and the requested action, and to examine why a particular message was generated.
 
 The engine runs locally with Python and SQLite. Bash provides the command-line entry point and composes the demonstration workflow. Planning and realization require no language model, network connection, or messaging account. See the [technical specification](correspondence-spec.pdf) and its [LaTeX source](correspondence-spec.tex) for the design and acceptance criteria.
