@@ -1,8 +1,8 @@
 # Symbolic Correspondence Generator
 
-The Symbolic Correspondence Generator is a research prototype for composing email drafts from explicit project goals, recipient evidence, and author preferences. It represents each draft first as a message plan, then realizes that plan through a typed grammar. This separation makes it possible to vary the wording while preserving the purpose and the requested action, and to examine why a particular message was generated.
+The Symbolic Correspondence Generator is a research prototype for composing message drafts from explicit project goals, recipient evidence, and author preferences. It represents each draft first as a message plan, then realizes that plan through a typed grammar. This separation makes it possible to vary the wording while preserving the purpose and the requested action, and to examine why a particular message was generated.
 
-The engine runs locally with Python and SQLite. Bash provides the command-line entry point and composes the demonstration workflow. Planning and realization require no language model, network connection, or mail account. See the [technical specification](correspondence-spec.pdf) and its [LaTeX source](correspondence-spec.tex) for the design and acceptance criteria.
+The engine runs locally with Python and SQLite. Bash provides the command-line entry point and composes the demonstration workflow. Planning and realization require no language model, network connection, or messaging account. See the [technical specification](correspondence-spec.pdf) and its [LaTeX source](correspondence-spec.tex) for the design and acceptance criteria.
 
 ## Usage
 
@@ -20,7 +20,7 @@ bin/correspondence export --batch runs/correspondence --format txt
 
 `plan` reports the goals considered, evidence requirements, scoring decisions, and certificates before rendering. `explain` traces an individual slot through planning and realization, including rejected candidates and the grammar rules used by the selected draft. Each subcommand accepts `--help`.
 
-`bin/run-first-release` validates the sample memory, freezes its snapshot, runs the tests, and generates and audits both sample batches. It restarts the existing `runs/correspondence` and `runs/experiment` outputs. Correspondence exports are available as plain text and `.eml` drafts. The sample recipients are fictional, and resolving a `To` address requires an address file. Experiment output can be exported as JSON Lines with evidence values omitted.
+`bin/run-first-release` validates the sample memory, freezes its snapshot, runs the tests, and generates and audits both sample batches. It restarts the existing `runs/correspondence` and `runs/experiment` outputs. Correspondence exports are available as plain text and as message files marked unsent. The sample recipients are fictional, and resolving a recipient address requires an address file. Experiment output can be exported as JSON Lines with evidence values omitted.
 
 ## Planning and realization
 
@@ -36,7 +36,7 @@ The [grammar](memory/grammar/) declares purposes, discourse moves, referent depe
 
 The manifest fixes the seed and reference date, and a frozen snapshot identifies the input corpus. Workers produce bounded candidate sets independently. A single writer assigns candidates in stable slot order and reserves text fingerprints for experiment batches that require distinct drafts. SQLite records slot outcomes and a hash-chained event ledger. The audit reports ledger consistency, draft and abstention counts, and distinct text, structural, and plan signatures.
 
-Serial, two-worker, and interrupted runs of the 10,008-slot experiment produced identical output hashes under the tested engine and schema versions. Resume currently checks the manifest and snapshot hashes. Resume a batch with the same engine and schema versions used to start it.
+Serial, two-worker, and interrupted runs of the 10,008-slot experiment produced identical output hashes under the tested engine and schema versions. Resume checks the manifest and snapshot hashes, and also compares the engine and schema identity recorded when the run started with the current one. A batch whose engine has changed refuses to resume, and `--restart` discards the partial run.
 
 | Synthetic experiment | Slots | Distinct drafts | Observed outcome |
 | --- | ---: | ---: | --- |
