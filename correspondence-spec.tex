@@ -10,6 +10,7 @@
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
 \usepackage{enumitem}
+\usepackage{float}
 \usepackage[ruled,vlined,linesnumbered]{algorithm2e}
 \setlength{\parindent}{1.4em}
 \setlength{\parskip}{0.2em}
@@ -56,6 +57,7 @@
 This paper gives a formal specification of a symbolic system that produces individualized email drafts from a versioned memory of projects, author preferences and recipient histories. The system separates a message plan, which records why the author is writing, which facts may be stated and what response is requested, from a rendered draft, which expresses that plan in prose. Planning is governed by a small declarative evaluator with three-valued logic in which missing evidence is unknown rather than false, so that a positive requirement can never be met by the absence of a contradiction. Every assertion a draft may make, including pragmatic implications such as a prior exchange, must be backed by a scope-carrying certificate that records its sources, the inference rule used, the recipient and occasion scope, and whether the underlying evidence may be mentioned or only used for planning. Realization operates on typed clause plans under a validity predicate that rejects unsupported implications, unrecoverable referents, repeated discourse moves, a second request, a changed action, and violations of layered author preferences. We state and prove the properties that make the design checkable: monotonicity of the evaluator on a defined fragment, well-definedness of preference resolution, soundness of certificate coverage relative to declared and lexically detected implications, stability of candidate selection under tightened constraints, and independence of batch output from worker count, chunking and interruption under a recorded engine identity. We define three separate diversity measures, a capacity model for distinctness-constrained generation, and an append-only hash-chained ledger with an accounting identity. We then report measurements from a reference implementation: a 10,008 slot experiment, a 100,008 slot run, and a capacity estimate obtained by sampling the grammar's path space. We state what remains unverified, including the million slot benchmark, and identify the limits of the lexical implication check, the recency sensitivity of bound evidence, and the bounded-sample source of the exhaustion events observed at scale.
 \end{abstract}
 
+\newpage
 \tableofcontents
 \newpage
 \section{Introduction and Scope}
@@ -274,7 +276,7 @@ where $\mathcal{I}=\{\text{downloaded},\text{read},\text{commented\_on},\text{re
 \]
 \end{definition}
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Evidence strength table $w$ used by $\mathsf{score\text{-}v1}$.}\label{tab:strength}
 \begin{tabular}{lr}
@@ -350,7 +352,7 @@ Pragmatic implications are treated exactly as factual assertions. The sentence `
 
 Direct certificates of recipient kinds are built from a fixed correspondence between kinds and predicates, shown in Table~\ref{tab:kindpred}. For a kind $k$ with predicate $p$ and project scope $\mathrm{ps}$, the source is the latest record (maximal in $(t,\mathrm{id})$) among positive, plan-usable records of that predicate for the recipient, restricted to the plan's project when $\mathrm{ps}$ is \code{project}.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Certificate kinds derived directly from evidence.}\label{tab:kindpred}
 \begin{tabular}{llll}
@@ -596,7 +598,7 @@ Each slot of a batch occupies exactly one state at a time. The transitions are
 \]
 and no other transition is permitted. The first transition is made by stage A, the second by stage B, and the last by export. The ledger records events of the kinds shown in Table~\ref{tab:events}.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Ledger event kinds and the transitions that write them.}\label{tab:events}
 \small
@@ -656,7 +658,7 @@ The audit verifies the chain, the agreement of the ledger with the tables, and t
 
 Table~\ref{tab:storage} lists the batch tables. Two choices are made for scale. Stage A stores the plan as a compressed blob and each sampled candidate as an identifier, a fingerprint and a structural signature, with no text, because the text is a deterministic function of the plan and the identifier and is re-rendered at selection. And stage B checks, after re-rendering, that the fingerprint equals the stored one, and records a failure \code{rerender\_mismatch} if it does not, so a grammar change between stages cannot pass unnoticed even apart from the engine identity check.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Tables of the batch database.}\label{tab:storage}
 \begin{tabular}{p{3cm}p{9.5cm}}
@@ -697,7 +699,7 @@ The last condition is automatic for grammar patches, because certificates are pr
 
 Acceptance begins with semantic tests. Each criterion below is stated as a formal property and is paired with the tests of the reference implementation that check it.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Acceptance criteria, their formal statements and the checking tests.}\label{tab:accept}
 \small\raggedright
@@ -726,7 +728,7 @@ The initial scale target is 10,000 synthetic drafts, with a review sample drawn 
 
 The reference implementation is a Bash entry point over a Python engine of roughly two thousand lines, with SQLite for storage and TOML for the grammar, the preferences and the batch manifests. Table~\ref{tab:modules} maps the modules to the sections of this document.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Modules of the reference implementation and the sections that specify them.}\label{tab:modules}
 \begin{tabular}{lll}
@@ -752,7 +754,7 @@ The first release uses a fictional corpus, so that no real person appears in any
 
 All figures below were measured on two cores of a development container and are single observations, not distributions.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Measured batches. Abstentions in the experiment batches are by design.}\label{tab:runs}
 \begin{tabular}{lrrrrr}
@@ -798,7 +800,7 @@ This section states what the specification does not guarantee, so that the guara
 
 A rule is a record with the fields of Table~\ref{tab:schema}. The template is a string with placeholders in braces, from which the set of knowledge kinds the rule needs is derived (Section~\ref{sec:real}).
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Fields of a grammar rule.}\label{tab:schema}
 \begin{tabular}{lp{9.5cm}}
@@ -822,7 +824,7 @@ template & Text with placeholders\\
 
 Table~\ref{tab:inventory} lists the number of rules per slot for each of the three purposes, as reported by the reference implementation. Entries separated by slashes are the counts for the three purposes in the order of Section~\ref{sec:plan}; single entries apply to all three, and the closing slot also has one rule specific to each purpose.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Grammar rule counts by slot.}\label{tab:inventory}
 \begin{tabular}{lc}
@@ -843,7 +845,7 @@ signoff & 5\\
 
 \section{Algorithms}\label{app:algs}
 
-\begin{algorithm}[ht]
+\begin{algorithm}[H]
 \caption{Plan generation for one slot}\label{alg:plan}
 \KwIn{recipient $a$, date $d$, snapshot $\Kt$, resolved preferences}
 \KwOut{a plan or an abstention with a reason}
@@ -858,7 +860,7 @@ build certificates, partition aspects, and attach the requested action\;
 \Return the plan\;
 \end{algorithm}
 
-\begin{algorithm}[ht]
+\begin{algorithm}[H]
 \caption{Selection of a draft for one slot}\label{alg:select}
 \KwIn{plan $P$, seed $\sigma$, slot $i$, batch fingerprint table}
 \KwOut{a draft or a recorded failure}
@@ -876,7 +878,7 @@ $V\leftarrow\{c\in S:\Valid(P,c)\}$\;
 
 Table~\ref{tab:cli} summarizes the commands. Every command that reads a batch refuses to proceed on a mismatch of manifest hash, snapshot hash or engine identity, unless \code{--restart} is given to discard the partial run.
 
-\begin{table}[ht]
+\begin{table}[H]
 \centering
 \caption{Commands of the reference implementation.}\label{tab:cli}
 \begin{tabular}{lp{9.4cm}}
@@ -895,6 +897,7 @@ maintain & Write the offline maintenance packet\\
 \end{tabular}
 \end{table}
 
+\clearpage
 \begin{thebibliography}{9}
 \bibitem{kleene1952} S.~C. Kleene. \emph{Introduction to Metamathematics}. North-Holland, Amsterdam, 1952.
 \bibitem{reiterdale2000} E.~Reiter and R.~Dale. \emph{Building Natural Language Generation Systems}. Cambridge University Press, 2000.
