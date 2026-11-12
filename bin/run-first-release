@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Runs the first release workflow end to end from the project root.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+C="bin/correspondence"
+REFDATE="${REFDATE:-2026-11-11}"
+
+$C validate --memory memory/
+$C freeze --memory memory/ --out snapshots/proof-abundance --reference-date "$REFDATE"
+PYTHONPATH="$ROOT/engine" python3 -m unittest discover -s tests -q
+
+$C generate --manifest batches/correspondence.toml --restart
+$C audit --batch runs/correspondence --regenerate
+$C export --batch runs/correspondence --format txt
+$C export --batch runs/correspondence --format eml
+
+$C generate --manifest batches/experiment.toml --workers "${WORKERS:-2}" --restart
+$C audit --batch runs/experiment --regenerate 500 --sample 6
+$C export --batch runs/experiment --format jsonl --omit-evidence

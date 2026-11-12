@@ -1,0 +1,11 @@
+[[occasion]]
+id = "outreach"
+description = "First or standalone note to someone with a recipient-specific reason"
+allowed_purposes = ["typesetting_correction", "substantive_followup", "share_revision"]
+require_recipient_reason = true
+
+[[occasion]]
+id = "followup"
+description = "Note to someone with an existing exchange about a current project"
+allowed_purposes = ["substantive_followup", "share_revision"]
+require_recipient_reason = true

@@ -1,0 +1,80 @@
+# Correspondence slots: one recipient and one author-approved occasion each.
+
+[[slot]]
+id = "corr-001-ada"
+mode = "correspondence"
+recipient = "r-ada"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-002-ben"
+mode = "correspondence"
+recipient = "r-ben"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-003-chloe"
+mode = "correspondence"
+recipient = "r-chloe"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-004-dev"
+mode = "correspondence"
+recipient = "r-dev"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-005-eli"
+mode = "correspondence"
+recipient = "r-eli"
+occasion = "followup"
+
+[[slot]]
+id = "corr-006-fay"
+mode = "correspondence"
+recipient = "r-fay"
+occasion = "followup"
+
+[[slot]]
+id = "corr-007-gus"
+mode = "correspondence"
+recipient = "r-gus"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-008-hana"
+mode = "correspondence"
+recipient = "r-hana"
+occasion = "followup"
+
+[[slot]]
+id = "corr-009-ivan"
+mode = "correspondence"
+recipient = "r-ivan"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-010-jo"
+mode = "correspondence"
+recipient = "r-jo"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-011-kim"
+mode = "correspondence"
+recipient = "r-kim"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-012-lee"
+mode = "correspondence"
+recipient = "r-lee"
+occasion = "outreach"
+
+[[slot]]
+id = "corr-013-lee-typeset"
+mode = "correspondence"
+recipient = "r-lee"
+occasion = "outreach"
+purpose = "typesetting_correction"

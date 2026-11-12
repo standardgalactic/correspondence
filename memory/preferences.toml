@@ -1,0 +1,124 @@
+# Author preferences. Resolution order: hard constraints, occasion, project, global.
+
+[[pref]]
+id = "g-one-request"
+scope = "global"
+key = "max_requests"
+value = 1
+hard = true
+priority = 100
+
+[[pref]]
+id = "g-no-em-dash"
+scope = "global"
+key = "forbid_chars"
+value = ["\u2014"]
+hard = true
+priority = 100
+
+[[pref]]
+id = "g-no-emoji"
+scope = "global"
+key = "forbid_emoji"
+value = true
+hard = true
+priority = 100
+
+[[pref]]
+id = "g-no-filler"
+scope = "global"
+key = "forbid_phrases"
+value = ["hope this email finds you well", "as you know", "i hope you remember"]
+hard = false
+priority = 50
+
+[[pref]]
+id = "g-title-mentions"
+scope = "global"
+key = "title_max_mentions"
+value = 2
+priority = 10
+
+[[pref]]
+id = "g-title-style"
+scope = "global"
+key = "title_style"
+value = "canonical"
+priority = 10
+
+[[pref]]
+id = "g-register"
+scope = "global"
+key = "register"
+value = ["plain"]
+priority = 10
+
+[[pref]]
+id = "g-directness"
+scope = "global"
+key = "directness"
+value = ["direct"]
+priority = 10
+
+[[pref]]
+id = "g-max-words"
+scope = "global"
+key = "max_words"
+value = 160
+priority = 10
+
+[[pref]]
+id = "p-proof-title"
+scope = "project:proof-abundance"
+key = "title_style"
+value = "short"
+priority = 10
+
+[[pref]]
+id = "p-geometry-title"
+scope = "project:geometry-of-scope"
+key = "title_style"
+value = "short"
+priority = 10
+
+[[pref]]
+id = "o-outreach-register"
+scope = "occasion:outreach"
+key = "register"
+value = ["plain", "warm"]
+priority = 10
+
+[[pref]]
+id = "o-outreach-directness"
+scope = "occasion:outreach"
+key = "directness"
+value = ["direct", "gentle"]
+priority = 10
+
+[[pref]]
+id = "o-outreach-words"
+scope = "occasion:outreach"
+key = "max_words"
+value = 150
+priority = 10
+
+[[pref]]
+id = "o-followup-register"
+scope = "occasion:followup"
+key = "register"
+value = ["warm", "plain"]
+priority = 10
+
+[[pref]]
+id = "o-followup-words"
+scope = "occasion:followup"
+key = "max_words"
+value = 120
+priority = 10
+
+[[pref]]
+id = "o-followup-title"
+scope = "occasion:followup"
+key = "title_max_mentions"
+value = 1
+priority = 10

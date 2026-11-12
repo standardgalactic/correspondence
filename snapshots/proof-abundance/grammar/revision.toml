@@ -1,0 +1,27 @@
+# Purpose: share_revision. Request action: review_revision.
+
+rule = [
+  { id = "r-s-revised", slot = "subject", purposes = ["share_revision"], construction = "noun_phrase", canonical = true, text = "A revised version of {title}" },
+  { id = "r-s-new", slot = "subject", purposes = ["share_revision"], construction = "noun_phrase", text = "The new version of {title}" },
+  { id = "r-s-avail", slot = "subject", purposes = ["share_revision"], construction = "clause", asserts = ["project_revision"], text = "{title}: revised version available" },
+  { id = "r-s-asked", slot = "subject", purposes = ["share_revision"], construction = "noun_phrase", asserts = ["recipient_requested_revision"], text = "The revision you asked about" },
+
+  { id = "r-r-asked1", slot = "reason", purposes = ["share_revision"], construction = "statement", move = "cite_evidence", asserts = ["recipient_requested_revision"], introduces = ["project"], text = "You asked to see a revised version of {title}, and there is one now." },
+  { id = "r-r-asked2", slot = "reason", purposes = ["share_revision"], construction = "statement", move = "cite_evidence", asserts = ["recipient_requested_revision"], text = "You asked me to let you know when a revised version existed." },
+  { id = "r-r-asked3", slot = "reason", purposes = ["share_revision"], construction = "statement", move = "cite_evidence", asserts = ["recipient_requested_revision"], text = "You asked to see a revised version, so I am writing to you." },
+  { id = "r-r-because", slot = "reason", purposes = ["share_revision"], construction = "statement", move = "cite_evidence", asserts = ["recipient_requested_revision"], follows = ["request"], text = "I am asking because you asked to see a revised version." },
+  { id = "r-r-plain", slot = "reason", purposes = ["share_revision"], construction = "statement", move = "state_need", asserts = ["project_revision"], canonical = true, text = "A revised version is now available." },
+
+  { id = "r-c-note", slot = "context", purposes = ["share_revision"], construction = "statement", move = "introduce_project", asserts = ["project_revision"], introduces = ["project"], canonical = true, text = "{title} now has {revision_note}." },
+  { id = "r-c-url", slot = "context", purposes = ["share_revision"], construction = "statement", move = "introduce_project", asserts = ["project_revision"], introduces = ["project"], text = "The revised {title} is at {url}." },
+  { id = "r-c-adds", slot = "context", purposes = ["share_revision"], construction = "statement", move = "introduce_project", asserts = ["project_revision"], introduces = ["project"], text = "The latest version of {title} includes {revision_note}." },
+
+  { id = "r-q-full-direct", slot = "request", purposes = ["share_revision"], action = "review_revision", obligation = "ask_if_able", construction = "direct_question", move = "ask", introduces = ["project"], text = "Would you read the revised version of {title} and tell me whether the changes work?" },
+  { id = "r-q-full-cond", slot = "request", purposes = ["share_revision"], action = "review_revision", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], introduces = ["project"], text = "If you have time, I would value your reaction to the revised version of {title}." },
+  { id = "r-q-ana-direct", slot = "request", purposes = ["share_revision"], action = "review_revision", obligation = "ask_if_able", construction = "direct_question", move = "ask", needs = ["project"], canonical = true, text = "Would you look over the new version and tell me whether the changes work?" },
+  { id = "r-q-ana-stq", slot = "request", purposes = ["share_revision"], action = "review_revision", obligation = "ask_if_able", construction = "statement_question", move = "ask", needs = ["project"], text = "I would like to know whether the changes work. Could you read the new version and tell me?" },
+  { id = "r-q-ana-cond", slot = "request", purposes = ["share_revision"], action = "review_revision", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], needs = ["project"], text = "If you can spare the time, I would value your reaction to the new version." },
+
+  { id = "r-s-url", slot = "support", purposes = ["share_revision"], construction = "statement", move = "point_to_text", needs = ["project"], text = "You can find it at {url}." },
+  { id = "r-s-supersede", slot = "support", purposes = ["share_revision"], construction = "statement", move = "offer_latitude", needs = ["project"], asserts = ["project_revision"], text = "Please use this version, since it supersedes the one before." },
+]

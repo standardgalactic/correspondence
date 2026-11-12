@@ -1,0 +1,7 @@
+# Explicit inference rules. Nothing else is inferred: a comment on a page does not imply that the whole book was read.
+
+[[inference]]
+id = "commented_implies_read_passage"
+from = "recipient_commented"
+to = "recipient_read_passage"
+requires_locator = true

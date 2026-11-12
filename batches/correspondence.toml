@@ -1,0 +1,12 @@
+[batch]
+id = "correspondence"
+mode = "correspondence"
+snapshot = "snapshots/proof-abundance"
+seed = 20261111
+reference_date = "2026-11-11"
+candidates_per_slot = 12
+score_band = 0
+require_distinct = false
+
+[slots]
+source = "memory"

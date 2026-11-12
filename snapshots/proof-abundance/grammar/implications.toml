@@ -1,0 +1,13 @@
+# Pragmatic implication triggers. Any rendered text matching a pattern must be backed by a certificate of the given kind.
+
+trigger = [
+  { id = "tr-again", pattern = "\\bagain\\b", kind = "prior_exchange" },
+  { id = "tr-follow", pattern = "\\bfollowing up\\b|\\bfollow-up\\b|\\bfollow up\\b", kind = "prior_exchange" },
+  { id = "tr-earlier", pattern = "\\bour (earlier|last|previous|recent)\\b|\\bas we discussed\\b|\\blast time\\b|\\bwhen we spoke\\b", kind = "prior_exchange" },
+  { id = "tr-offered", pattern = "\\byou (once )?offered\\b|\\byou (said )?you were willing\\b", kind = "recipient_offered_help" },
+  { id = "tr-willing", pattern = "\\byou said you were willing\\b", kind = "recipient_offered_help" },
+  { id = "tr-commented", pattern = "\\byour comment\\b|\\byou commented\\b|\\bthe comment on\\b", kind = "recipient_commented" },
+  { id = "tr-downloaded", pattern = "\\byou (also )?downloaded\\b|\\byour copy\\b|\\byou (already )?have a copy\\b", kind = "recipient_downloaded" },
+  { id = "tr-asked", pattern = "\\byou asked\\b|\\byou requested\\b", kind = "recipient_requested_revision" },
+  { id = "tr-read", pattern = "\\byou have read\\b|\\byou('ve| already) read\\b|\\bwhen you read\\b|\\bhaving read\\b|\\breread\\b|\\banother look\\b|\\bsecond look\\b", kind = "recipient_read_passage" },
+]

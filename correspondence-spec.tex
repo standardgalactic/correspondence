@@ -1,0 +1,906 @@
+\documentclass[11pt]{article}
+\usepackage[T1]{fontenc}
+\emergencystretch=2em
+\sloppy
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1.15in]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{booktabs,array,longtable}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e}
+\setlength{\parindent}{1.4em}
+\setlength{\parskip}{0.2em}
+\renewcommand{\arraystretch}{1.15}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Kt}{\mathbf{K}_3}
+\newcommand{\vT}{\mathsf{T}}
+\newcommand{\vU}{\mathsf{U}}
+\newcommand{\vF}{\mathsf{F}}
+\newcommand{\sem}[1]{[\![#1]\!]}
+\newcommand{\Hash}{\mathrm{H}}
+\newcommand{\canon}{\mathrm{canon}}
+\newcommand{\kind}{\mathrm{kind}}
+\newcommand{\mention}{\mathsf{mention}}
+\newcommand{\planuse}{\mathsf{plan}}
+\newcommand{\planonly}{\mathsf{plan\_only}}
+\newcommand{\Elig}{\mathrm{Elig}}
+\newcommand{\Valid}{\mathrm{Valid}}
+\newcommand{\Mset}{\mathcal{M}}
+\newcommand{\rank}{\mathrm{rank}}
+\newcommand{\need}{\mathrm{need}}
+\newcommand{\code}[1]{\texttt{#1}}
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title{Symbolic Correspondence Generation:\\A Formal Specification with Scoped Certificates\\and Reproducible Batch Semantics}
+\author{Flyxion\\Independent Researcher}
+\date{November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+This paper gives a formal specification of a symbolic system that produces individualized email drafts from a versioned memory of projects, author preferences and recipient histories. The system separates a message plan, which records why the author is writing, which facts may be stated and what response is requested, from a rendered draft, which expresses that plan in prose. Planning is governed by a small declarative evaluator with three-valued logic in which missing evidence is unknown rather than false, so that a positive requirement can never be met by the absence of a contradiction. Every assertion a draft may make, including pragmatic implications such as a prior exchange, must be backed by a scope-carrying certificate that records its sources, the inference rule used, the recipient and occasion scope, and whether the underlying evidence may be mentioned or only used for planning. Realization operates on typed clause plans under a validity predicate that rejects unsupported implications, unrecoverable referents, repeated discourse moves, a second request, a changed action, and violations of layered author preferences. We state and prove the properties that make the design checkable: monotonicity of the evaluator on a defined fragment, well-definedness of preference resolution, soundness of certificate coverage relative to declared and lexically detected implications, stability of candidate selection under tightened constraints, and independence of batch output from worker count, chunking and interruption under a recorded engine identity. We define three separate diversity measures, a capacity model for distinctness-constrained generation, and an append-only hash-chained ledger with an accounting identity. We then report measurements from a reference implementation: a 10,008 slot experiment, a 100,008 slot run, and a capacity estimate obtained by sampling the grammar's path space. We state what remains unverified, including the million slot benchmark, and identify the limits of the lexical implication check, the recency sensitivity of bound evidence, and the bounded-sample source of the exhaustion events observed at scale.
+\end{abstract}
+
+\tableofcontents
+\newpage
+\section{Introduction and Scope}
+
+A system that drafts individual correspondence faces a tension that is easy to state and hard to enforce. The drafts should differ because the recipients differ, which means they should draw on evidence about those recipients and make requests that fit what the author actually wants. Yet every sentence that refers to a recipient's history is a claim, and a fluent sentence that claims more than the record supports is worse than a generic one. A message that opens by thanking someone again presupposes an earlier thanks. A message that follows up on an exchange presupposes the exchange. A message that mentions a comment on page 14 presupposes that the comment exists and that the author may say so. The specification studied here treats these presuppositions as first-class objects and builds the generator around the requirement that none of them may be introduced by wording alone.
+
+The design rests on a separation of two representations. The \emph{message plan} is a structured object that records the reason for writing, the project concerned, the set of propositions that may be asserted, the single response requested, and the aspects of the project that are foregrounded, optional or excluded. The \emph{rendered draft} is prose produced from the plan by a grammar. Variation in expression is permitted only within the bounds that the plan fixes. Variation in the plan itself, meaning a different purpose, different evidence or a different request, is a different kind of variation and is measured separately from variation in wording. A recipient record that contains only a name can support a salutation, and the system records that as name substitution, not as individualization.
+
+\paragraph{Contributions.} This paper formalizes the specification and states the properties it is meant to guarantee. Section~\ref{sec:model} fixes the data model and the notion of a frozen snapshot. Section~\ref{sec:logic} defines the evidence logic and proves a monotonicity result on a bounded fragment, together with an explicit account of where monotonicity fails. Section~\ref{sec:prefs} defines layered preference resolution and shows that it is a well-defined function. Section~\ref{sec:plan} defines planning, scoring and abstention. Section~\ref{sec:cert} defines scope-carrying certificates and the assertion calculus, and Section~\ref{sec:real} defines realization and proves that validity entails certificate coverage. Section~\ref{sec:det} treats determinism, proving stability of selection and independence of batch output from execution schedule. Section~\ref{sec:div} defines the diversity measures and a capacity model, Section~\ref{sec:ledger} the ledger and accounting, Section~\ref{sec:maint} the offline maintenance cycle, and Section~\ref{sec:accept} the acceptance criteria. Section~\ref{sec:impl} reports measurements from a reference implementation, and Section~\ref{sec:limits} states its limits.
+
+\paragraph{Status of the claims.} Throughout, a statement is marked as a definition when it fixes the specification, as a theorem or proposition when it is proved from the definitions, and as a measurement when it comes from a run of the reference implementation (version~0.1.0, schema version~1). The reference implementation is deterministic Python with SQLite storage and a Bash command interface. Its test suite contains 33 tests, all of which pass. A million slot benchmark is defined but has not been executed, and no claim in this paper depends on its outcome.
+
+\section{Data Model and Snapshots}\label{sec:model}
+
+\subsection{Notation}
+
+Let $\mathbb{D}$ denote the set of calendar dates with its usual total order. A reference date $d^\ast\in\mathbb{D}$ is supplied explicitly with every run, and no component of the system reads a wall clock when making a decision. Let $\Hash$ denote SHA-256 \cite{fips1804} and $\canon(x)$ denote the canonical serialization of a JSON-like value $x$, with object keys sorted, no insignificant whitespace, and characters left unescaped. For a finite sequence of strings $a_1,\dots,a_n$ let
+\[
+h(a_1,\dots,a_n)\;=\;\text{the first 64 bits of }\Hash\bigl(a_1\,\Vert\,\mathrm{0x1F}\,\Vert\,a_2\,\Vert\cdots\Vert\,a_n\bigr),
+\]
+read as an unsigned integer. All pseudo-random choices in the system are values of $h$ applied to a master seed, a slot identifier, a stage name and a choice identifier. For a finite non-empty sequence $L$ we write $\mathrm{pick}(L;\,a_1,\dots,a_n)=L\bigl[h(a_1,\dots,a_n)\bmod |L|\bigr]$.
+
+\subsection{Records}
+
+The editable memory consists of the following record types. Each has a stable identifier that is unique within its type.
+
+\begin{definition}[Project]\label{def:project}
+A project is a tuple $\pi=(\mathrm{id},\mathrm{title},\mathrm{short},\mathrm{url},\mathrm{status},\mathrm{kind},\mathrm{age},\mathrm{rev},\mathrm{revdate},\mathrm{asp})$ where $\mathrm{status}\in\{\text{revising},\text{published},\text{planned}\}$, $\mathrm{kind}\in\{\text{essay},\text{monograph}\}$, and $\mathrm{asp}$ is a partial map from aspect names to text. The aspect names in use are $\mathrm{title}$, $\mathrm{url}$, $\mathrm{argument}$, $\mathrm{revision\_note}$ and $\mathrm{defect\_kinds}$, the last being a non-empty list of strings.
+\end{definition}
+
+\begin{definition}[Recipient]
+A recipient is a tuple $r=(\mathrm{id},\mathrm{name},\mathrm{given},\mathrm{lang},\mathrm{ref})$ with a language tag and an optional address reference. The address itself is never part of memory. It is resolved only at export, from a separate file keyed by the reference.
+\end{definition}
+
+\begin{definition}[Evidence]\label{def:evidence}
+An evidence record is $e=(\mathrm{id},s,p,j,v,\ell,\mathrm{src},t,U,\nu)$ with subject $s$ a recipient identifier, predicate $p\in\mathcal{P}$, optional project $j$, optional value $v$ and locator $\ell$, a source description, an observation date $t\in\mathbb{D}$, an allowed-use set $U\subseteq\{\planuse,\mention\}$, and a negation flag $\nu\in\{0,1\}$. The predicate set is
+\[
+\begin{aligned}\mathcal{P}={}&\{\text{downloaded},\text{read},\text{commented\_on},\text{offered\_to\_help\_with},\\&\ \text{requested\_revision},\text{received\_revision},\text{corresponded\_with},\text{asked\_not\_to\_contact}\}.\end{aligned}
+\]
+\end{definition}
+
+The first four predicates are those distinguished by the specification. The remaining four are required by the three declared purposes and by the abstention cases. An implication between predicates exists only if a rule says so (Definition~\ref{def:inference}). In particular, a record of the predicate $\text{commented\_on}$ with a locator supports a claim about that comment and, through a stated inference rule, a claim that the passage was read. It does not establish that a whole work was read.
+
+\begin{definition}[Goal]\label{def:goal}
+A goal is $g=(\mathrm{id},\mathrm{purpose},\Pi_g,\mathrm{act},\mathrm{prio},[a,b],F,O,X,\mathrm{req},\mathrm{dis})$ where $\Pi_g$ is a list of project identifiers, $\mathrm{act}$ is the action requested of the recipient, $\mathrm{prio}\in\N$ is the author's priority for the goal, $[a,b]$ is an activity window, $F,O,X$ are disjoint sets of aspect names (foregrounded, optional, excluded), and $\mathrm{req}$ and $\mathrm{dis}$ are expressions of the evidence logic of Section~\ref{sec:logic}. The disqualifier $\mathrm{dis}$ may be absent, in which case it is treated as the constant false.
+\end{definition}
+
+\begin{definition}[Inference rule]\label{def:inference}
+An inference rule is a triple $(\mathrm{id},k,k')$ of certificate kinds with an optional flag requiring a locator. It licenses a certificate of kind $k'$ from a certificate of kind $k$ with the same sources and the same use.
+\end{definition}
+
+\begin{definition}[Preference]\label{def:pref}
+A preference is $q=(\mathrm{id},\sigma,\kappa,\mathrm{val},\eta,\mathrm{prio},W)$ with scope $\sigma\in\{\text{global}\}\cup\{\text{project}{:}j\}\cup\{\text{occasion}{:}o\}$, key $\kappa$, value, hardness flag $\eta\in\{0,1\}$, integer priority, and an optional effective window $W\subseteq\mathbb{D}$.
+\end{definition}
+
+\begin{definition}[Occasion and slot]
+An occasion is a pair $(o,\mathrm{allowed}_o)$ with a set of permitted purposes and a flag $\mathrm{needr}_o$ stating whether a recipient-specific reason is required. A draft slot is $s=(\mathrm{id},\mathrm{mode},r,o,j?,p?)$ with mode in $\{\text{correspondence},\text{experiment}\}$, a recipient, an occasion, and optional constraints on project and purpose. At most one draft is emitted per slot.
+\end{definition}
+
+Grammar rules and the trigger lexicon are records of the memory as well, and are defined in Section~\ref{sec:real}. A batch manifest is a record of the form $\mathcal{B}=(\mathrm{id},\mathrm{mode},\mathrm{snapshot},\mathrm{seed},d^\ast,K,\beta,\mathrm{distinct},\mathrm{slots})$ where $K\in\N$ is the number of candidates sampled per slot, $\beta\in\N$ is the score band, and $\mathrm{distinct}$ states whether distinct normalized text is required.
+
+\subsection{Snapshots}
+
+\begin{definition}[Snapshot]\label{def:snapshot}
+Let $\mathcal{F}$ be the set of files of the memory directory, excluding derived files, and let $f\mapsto\Hash(f)$ map each file to its digest. A snapshot is the pair $(\mathcal{M},\mathrm{hash})$ where $\mathcal{M}$ is the parsed memory and $\mathrm{hash}=\Hash\bigl(\canon(\{(\mathrm{path}(f),\Hash(f)):f\in\mathcal{F}\})\bigr)$.
+\end{definition}
+
+A batch reads only a snapshot, never the live memory. Loading a snapshot recomputes the digest and fails if it differs from the recorded one, so an edit to a project title made midway through generation has no effect on the batch and a tampered snapshot is detected. The SQLite database built at freeze time is a projection of the snapshot and is rebuilt from it, so it is not a source of truth.
+
+\subsection{Well-Formedness}
+
+\begin{definition}[Valid memory]\label{def:valid}
+A memory $\mathcal{M}$ is valid when the following hold. Identifiers are unique within each record type. Every reference resolves: evidence subjects name recipients, evidence and goal projects name projects, slot recipients, occasions, projects and purposes exist, and inference and trigger kinds belong to the kind set of Section~\ref{sec:cert}. Every predicate that occurs in a goal condition belongs to $\mathcal{P}$, and every operation belongs to the operation set of Section~\ref{sec:logic}. Preference resolution is conflict-free at every checked point (Proposition~\ref{prop:prefcheck}). Every grammar rule uses known slots, placeholders, assertion kinds and referents, request rules declare an action and obligation and count exactly one request, non-request rules count none, and every rule that contains a pronoun or definite reference either declares the referent it needs or contains a title placeholder. Finally, for every goal and every required slot there is at least one usable rule and at least one usable canonical rule.
+\end{definition}
+
+The last condition guarantees that the canonical fallback of Section~\ref{sec:real} exists for each purpose. Validation reports every violated condition and does not stop at the first.
+\section{Evidence Logic}\label{sec:logic}
+
+\subsection{Syntax}
+
+Goal conditions are written in a deliberately small language so that every planning decision can be inspected. The language has a leaf form that queries evidence, comparison forms over resolved operands, and the Boolean connectives.
+
+\begin{definition}[Expressions]\label{def:expr}
+Let $\Sigma$ be the set of evidence specifications $\varsigma=(p,\mathrm{pf},\mathrm{vin},\mathrm{veq},\mathrm{use},\mathrm{age},\mathrm{bind})$ with predicate $p\in\mathcal{P}$, optional project filter, optional value-membership list, optional value-equality operand, a use requirement $\mathrm{use}\in\{\planuse,\mention\}$ defaulting to $\planuse$, an optional maximum age in days, and an optional bind name. Expressions are generated by
+\[
+\begin{aligned}\varphi\;::=\;{}&\mathsf{has}(\varsigma)\;\mid\;\mathsf{missing}(\varsigma)\;\mid\;\mathsf{eq}(a,b)\;\mid\;\mathsf{in}(a,L)\;\mid\;\mathsf{cmp}_{\bowtie}(a,b)\;\mid\;\\&\mathsf{all}(\varphi_1,\dots,\varphi_n)\;\mid\;\mathsf{any}(\varphi_1,\dots,\varphi_n)\;\mid\;\mathsf{not}(\varphi)\end{aligned}
+\]
+with ${\bowtie}\in\{<,\le,>,\ge\}$ comparing dates. Operands $a,b$ are literals or references. A reference is $\$\mathrm{project}$, $\$\mathrm{project}.f$, $\$\mathrm{goal}.f$, $\$\mathrm{ref\_date}$, or $\$x.f$ for a bind name $x$.
+\end{definition}
+
+\subsection{Semantics}
+
+The value set is $\Kt=\{\vF,\vU,\vT\}$, with the truth order $\vF<\vU<\vT$ and the information order $\sqsubseteq$ in which $\vU\sqsubseteq\vT$ and $\vU\sqsubseteq\vF$ while $\vT$ and $\vF$ are incomparable. The connectives are the strong Kleene connectives \cite{kleene1952}: conjunction is minimum and disjunction is maximum in the truth order, and negation exchanges $\vT$ and $\vF$ and fixes $\vU$.
+
+An evaluation context is $c=(E,\pi,g,d^\ast,\beta)$ where $E$ is the list of evidence records of one recipient, $\pi$ is a project, $g$ is a goal, and $\beta$ is a partial map from bind names to evidence records. Context evaluation is stateful in $\beta$ only, and the state flows from left to right.
+
+\begin{definition}[Matching]
+A record $e$ matches $\varsigma$ in $c$ when $e.p=\varsigma.p$; the project filter, if not the wildcard, equals $e.j$ after resolving references; $e.v$ is a case-insensitive member of $\varsigma.\mathrm{vin}$ when that list is given; $e.v$ equals the resolved $\varsigma.\mathrm{veq}$ when that operand is given; $\varsigma.\mathrm{use}\in e.U$; and, when an age bound is given, $0\le d^\ast-e.t\le\varsigma.\mathrm{age}$. Let $M^{+}(\varsigma,c)$ be the matching records with $\nu=0$ and $M^{-}(\varsigma,c)$ those with $\nu=1$.
+\end{definition}
+
+\begin{definition}[Evaluation]\label{def:eval}
+The value $\sem{\varphi}(c)\in\Kt$ is defined as follows.
+\begin{align*}
+\sem{\mathsf{has}(\varsigma)}&=\begin{cases}\vT&\text{if }M^{+}\neq\emptyset\text{, and the record maximal in }(t,\mathrm{id})\text{ is bound to }\varsigma.\mathrm{bind},\\ \vF&\text{if }M^{+}=\emptyset\text{ and }M^{-}\neq\emptyset,\\ \vU&\text{otherwise,}\end{cases}\\
+\sem{\mathsf{missing}(\varsigma)}&=\begin{cases}\vT&\text{if }M^{+}=\emptyset,\\ \vF&\text{otherwise,}\end{cases}\\
+\sem{\mathsf{eq}(a,b)}&=\vU\text{ if either operand is unresolved, else }\vT\text{ iff the operands are equal,}\\
+\sem{\mathsf{in}(a,L)}&=\vU\text{ if either operand is unresolved, else }\vT\text{ iff }a\in L,\\
+\sem{\mathsf{cmp}_{\bowtie}(a,b)}&=\vU\text{ if either operand is unresolved, else }\vT\text{ iff }a\bowtie b\text{ as dates,}\\
+\sem{\mathsf{all}(\varphi_1,\dots,\varphi_n)}&=\min_i\sem{\varphi_i},\qquad\sem{\mathsf{any}(\varphi_1,\dots,\varphi_n)}=\max_i\sem{\varphi_i},\\
+\sem{\mathsf{not}(\varphi)}&=\neg\sem{\varphi}.
+\end{align*}
+The arguments of $\mathsf{all}$ and $\mathsf{any}$ are evaluated in order and without short-circuiting, so every bind established by an earlier argument is visible to later arguments.
+\end{definition}
+
+The central design choice is visible in the first clause. When no record matches a $\mathsf{has}$ query the value is $\vU$, never $\vF$. A value of $\vF$ requires an explicit negated record. The operation $\mathsf{missing}$ is the only two-valued query, and it is the only way for a rule to state that the absence of a record is itself a condition.
+
+\begin{definition}[Eligibility of a goal-project pair]\label{def:elig}
+For a context $c$ whose goal has requirement $\mathrm{req}$ and disqualifier $\mathrm{dis}$, the pair is \emph{eligible} when $\sem{\mathrm{req}}(c)=\vT$ and $\sem{\mathrm{dis}}(c)\neq\vT$, with the disqualifier evaluated after the requirement and sharing its binds.
+\end{definition}
+
+A requirement passes only on $\vT$. A disqualifier blocks only on $\vT$. A disqualifier that evaluates to $\vU$, such as a request not to be contacted that has simply never been recorded, does not block a plan, since otherwise no plan could ever pass, but the unknown is recorded in the evaluation trace and appears in the output of the planning and explanation commands.
+
+\subsection{Monotonicity and Its Limits}
+
+\begin{lemma}[Kleene connectives are monotone]\label{lem:kleene}
+The functions $\min$, $\max$ and $\neg$ on $\Kt$ are monotone with respect to $\sqsubseteq$.
+\end{lemma}
+\begin{proof}
+Each function is determined by a finite table. If $x\sqsubseteq x'$ then either $x=x'$ or $x=\vU$. In the second case $\min(x,y)\in\{\vU,\min(x',y)\}$ because $\min(\vU,y)=\vF$ only when $y=\vF$, in which case $\min(x',y)=\vF$ as well, and otherwise $\min(\vU,y)=\vU\sqsubseteq\min(x',y)$. The argument for $\max$ is dual, and for $\neg$ it is immediate since $\neg\vU=\vU$.
+\end{proof}
+
+Information-monotonicity of the connectives is not sufficient for monotonicity of whole conditions with respect to the addition of evidence, because $\mathsf{has}$ can move from $\vF$ to $\vT$ when a positive record is added to a store that had only a negated one, and because $\mathsf{missing}$ and the binding of the latest record both move against the order. We therefore isolate a fragment on which the property holds.
+
+\begin{definition}[Positive fragment]
+Let $\mathcal{L}_0$ be the set of expressions that contain no $\mathsf{not}$, no $\mathsf{missing}$ and no bind names, and that use $\mathsf{has}$, $\mathsf{eq}$, $\mathsf{in}$, $\mathsf{cmp}$, $\mathsf{all}$ and $\mathsf{any}$ only. A \emph{positive extension} of a store $E$ is a store $E'\supseteq E$ in which neither $E$ nor $E'\setminus E$ contains a negated record.
+\end{definition}
+
+\begin{proposition}[Monotonicity on the positive fragment]\label{prop:mono}
+If $\varphi\in\mathcal{L}_0$ and $E'$ is a positive extension of $E$, then $\sem{\varphi}(E)\le\sem{\varphi}(E')$ in the truth order, for every fixed $\pi$, $g$ and $d^\ast$.
+\end{proposition}
+\begin{proof}
+By induction on $\varphi$. For $\mathsf{has}(\varsigma)$ with no negated records the value lies in $\{\vU,\vT\}$ and equals $\vT$ iff $M^{+}\neq\emptyset$. Since $M^{+}(E)\subseteq M^{+}(E')$, the value cannot decrease. The forms $\mathsf{eq}$, $\mathsf{in}$ and $\mathsf{cmp}$ do not depend on $E$ because no bind name occurs. For $\mathsf{all}$ and $\mathsf{any}$ the claim follows from monotonicity of $\min$ and $\max$ in the truth order.
+\end{proof}
+
+\begin{corollary}[Removal of the unique witness]\label{cor:removal}
+Let $\mathrm{req}=\mathsf{all}(\psi_1,\dots,\psi_n)\in\mathcal{L}_0$ with some $\psi_i=\mathsf{has}(\varsigma)$, and suppose a record $e$ is the only member of $M^{+}(\varsigma)$ in a negation-free store $E$. Then in $E\setminus\{e\}$ the requirement is not $\vT$, so no plan depending on it is eligible.
+\end{corollary}
+\begin{proof}
+In $E\setminus\{e\}$ the set $M^{+}(\varsigma)$ is empty and no negated record exists, hence $\sem{\psi_i}=\vU$ and the minimum is at most $\vU$.
+\end{proof}
+
+\begin{remark}[Recency and the failure of monotonicity with binds]\label{rem:bind}
+The goal for sharing a revision binds the latest matching revision request and compares its date with the project's revision date. Adding a later request can therefore turn a true comparison into a false one. This is intended behavior and not a defect: a recipient whose request postdates the revision has already been served by that revision, and the corpus contains such a recipient, who abstains. The consequence for the specification is that conditions using binds must be reasoned about directly and not through Proposition~\ref{prop:mono}.
+\end{remark}
+
+\section{Preference Resolution}\label{sec:prefs}
+
+Author preferences are layered. Global rules cover matters such as making exactly one concrete request and avoiding invented familiarity. Project rules can prefer a short title or prescribe how to refer to a version. Occasion rules set length and directness. Resolution is a function of the occasion $o$, the project $j$ and a date $d$, and its order is fixed: hard constraints first, then occasion settings, then project preferences, then author defaults.
+
+\begin{definition}[Applicable preferences]
+For $(o,j,d)$ let $A(o,j,d)$ be the set of preferences whose scope is global, or is $\text{occasion}{:}o$, or is $\text{project}{:}j$, and whose window, when present, contains $d$. For a preference $q$ let $\mathrm{lvl}(q)\in\{0,1,2\}$ be $0$ for global, $1$ for project and $2$ for occasion scope, and let $\rank(q)=(\mathrm{lvl}(q),q.\mathrm{prio})$ under the lexicographic order.
+\end{definition}
+
+\begin{definition}[Resolution]\label{def:resolve}
+Keys fall into two classes. The \emph{union keys} are the lists of forbidden characters and forbidden phrases. For a union key $\kappa$ the resolved value is the union of the values of all applicable preferences with key $\kappa$. For every other key let $A_\kappa$ be the applicable preferences with that key. If $A_\kappa$ contains hard preferences, the resolved value is their common value, and resolution is a \emph{conflict} if they disagree. Otherwise let $W_\kappa$ be the preferences of maximal rank in $A_\kappa$, and the resolved value is their common value, or a conflict if they disagree.
+\end{definition}
+
+Two properties of this definition deserve comment. A hard preference of any scope overrides a soft one of any scope, which is how a global prohibition survives an occasion setting that would otherwise take precedence. And two hard preferences that disagree are a conflict even when they have different scopes, because hardness expresses equal and absolute authority.
+
+\begin{theorem}[Well-definedness]\label{thm:prefs}
+Resolution is a total function from $(o,j,d)$ to the set of key-value maps together with the value $\mathsf{conflict}$. Its result does not depend on the order in which preferences are enumerated.
+\end{theorem}
+\begin{proof}
+The set $A(o,j,d)$ is determined by the scopes and windows alone. For each key the result is computed from the set $A_\kappa$ by taking a union, a maximum under a total preorder, or the common value of a set, and each of these operations is invariant under reordering of its argument and total on finite sets, with disagreement mapped to the single value $\mathsf{conflict}$.
+\end{proof}
+
+\begin{proposition}[Scope of conflict validation]\label{prop:prefcheck}
+Validation resolves preferences for every pair $(o,j)\in(\mathcal{O}\cup\{\bot\})\times(\Pi\cup\{\bot\})$ at the reference date and at each endpoint of each effective window, and reports any conflict found. It therefore certifies conflict-freedom at those finitely many points only.
+\end{proposition}
+\begin{proof}
+The statement describes the procedure. The restriction is necessary to state because conflict is not monotone in the set of applicable preferences: adding a higher-ranked soft preference can remove a conflict, so a conflict-free check at window endpoints does not imply conflict-freedom on the open intervals between them.
+\end{proof}
+
+The corpus declares no effective windows, in which case the set of checked points is complete.
+
+\begin{example}
+For the occasion \code{followup} and the project \emph{Proof Abundance} the resolved maximum body length is 120 words, from an occasion-scoped preference that outranks the global default of 160. The resolved title style is \code{short}, from a project-scoped preference that outranks the global value \code{canonical}. The resolved request limit is one, from a hard global preference that no occasion or project setting can override.
+\end{example}
+
+\section{Planning}\label{sec:plan}
+
+\subsection{Candidate Pairs}
+
+For a slot $s=(\mathrm{id},\mathrm{mode},r,o,j?,p?)$ the planner enumerates
+\[
+C(s)=\bigl\{(g,\pi)\;:\;\mathrm{purpose}(g)\in\mathrm{allowed}_o,\;\pi\in\Pi_g,\;p?\in\{\bot,\mathrm{purpose}(g)\},\;j?\in\{\bot,\pi\}\bigr\}.
+\]
+A pair is \emph{active} when $d^\ast$ lies in the goal's window. An inactive pair is recorded as such and is not evaluated. For each active pair the planner evaluates the requirement and the disqualifier in a fresh context and records, for each leaf evaluated, the operation, its value and a short description, so that every pass or fail can be reconstructed.
+
+\subsection{Scoring}
+
+Among eligible pairs, the planner ranks relevance to the recipient, continuity with an existing exchange, strength of the evidence relied on, and fit with the author's current priorities. The rule is an integer sum under a version tag, here $\mathsf{score\text{-}v1}$.
+
+\begin{definition}[Score]\label{def:score}
+Let $B$ be the set of evidence records bound during evaluation of the pair $(g,\pi)$, and let $E_{\planuse}$ be the plan-usable records of the recipient. Define
+\[
+\rho=\begin{cases}40&\exists e\in B:\ e.j=\pi.\mathrm{id},\\25&\text{else if }\exists e\in E_{\planuse}:\ e.p\in\mathcal{I},\ e.j=\pi.\mathrm{id},\\0&\text{otherwise,}\end{cases}
+\]
+\[
+\kappa=\begin{cases}20&\exists e\in E_{\planuse}:\ e.p=\text{corresponded\_with},\\0&\text{otherwise,}\end{cases}
+\]
+where $\mathcal{I}=\{\text{downloaded},\text{read},\text{commented\_on},\text{requested\_revision}\}$ is the set of interest predicates. Let $w$ be the strength table of Table~\ref{tab:strength} and define
+\[
+\sigma=\max_{e\in B}w(e.p)\;+\;10\cdot\mathbf{1}\bigl[\exists e\in B:\ 0\le d^\ast-e.t\le365\bigr],\qquad
+\mathrm{score}(g,\pi)=\rho+\kappa+\sigma+g.\mathrm{prio}.
+\]
+\end{definition}
+
+\begin{table}[ht]
+\centering
+\caption{Evidence strength table $w$ used by $\mathsf{score\text{-}v1}$.}\label{tab:strength}
+\begin{tabular}{lr}
+\toprule
+Predicate & $w$\\
+\midrule
+commented\_on & 40\\
+requested\_revision & 35\\
+offered\_to\_help\_with & 30\\
+read & 20\\
+downloaded & 5\\
+all others & 0\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Selection}
+
+\begin{definition}[Selection]\label{def:select}
+Let $\mathcal{E}$ be the eligible pairs sorted by $(-\mathrm{score},\ g.\mathrm{id},\ \pi.\mathrm{id})$ and let $s_{\max}$ be the top score. For a band $\beta\ge0$ let $\mathcal{E}_\beta=\{c\in\mathcal{E}:\mathrm{score}(c)\ge s_{\max}-\beta\}$, kept in sorted order. If $|\mathcal{E}_\beta|=1$ the planner selects its member. Otherwise it selects $\mathcal{E}_\beta\bigl[h(\mathrm{seed},s.\mathrm{id},\text{plan},\text{tie})\bmod|\mathcal{E}_\beta|\bigr]$.
+\end{definition}
+
+Randomness therefore operates only after eligibility and relevance have been settled, and with $\beta=0$ only among exact ties. When a recipient with no stronger evidence qualifies for the typesetting goal on three older essays at equal score, the seed alone decides which essay is named, and the decision is reproducible.
+
+\subsection{Abstention}
+
+\begin{definition}[Abstention reason]\label{def:abstain}
+If the recipient's language has no grammar rule, the slot abstains with \code{unsupported\_language}. Otherwise, if $\mathcal{E}=\emptyset$, the reason is the first applicable of the following: \code{no\_admissible\_goal} if $C(s)=\emptyset$; \code{recipient\_excluded} if some pair had a true requirement and a true disqualifier; \code{no\_active\_goal} if every pair was inactive; \code{no\_supported\_recipient\_context} if $\mathrm{needr}_o$ holds; and \code{no\_eligible\_plan} otherwise.
+\end{definition}
+
+\begin{proposition}[Soundness of planning]\label{prop:plansound}
+If a slot yields a plan, then the selected pair satisfied $\sem{\mathrm{req}}=\vT$ and $\sem{\mathrm{dis}}\neq\vT$ in the frozen snapshot, and every leaf that contributed to that outcome is recorded in the trace. A plan is never produced from an unknown requirement.
+\end{proposition}
+\begin{proof}
+Selection draws only from $\mathcal{E}$, which consists of eligible pairs by Definition~\ref{def:elig}. The trace is appended at every leaf evaluation.
+\end{proof}
+
+\begin{example}[Ranking]\label{ex:rank}
+A recipient has commented on page 18 of \emph{Proof Abundance} on 2026-10-04 and offered help with LaTeX on the same project on 2026-10-07. With $d^\ast=2026\text{-}11\text{-}11$, the substantive follow-up pair has $\rho=40$ because the bound comment concerns that project, $\kappa=0$, $\sigma=40+10=50$ and $g.\mathrm{prio}=20$, for a score of $110$. Each of the three typesetting pairs has $\rho=0$ because the offer concerns a different project from each essay and no interest record concerns any essay, $\kappa=0$, $\sigma=30+10=40$ and $g.\mathrm{prio}=10$, for a score of $50$. The follow-up is selected. If the slot carries a purpose constraint naming typesetting, the three typesetting pairs are the only candidates, they tie at $50$, and the seed selects among them.
+\end{example}
+
+\subsection{The Plan Object}
+
+\begin{definition}[Plan]\label{def:plan}
+A plan is a tuple
+\[
+\begin{aligned}P={}&(s,\mathrm{lang},o,\mathrm{purpose},g,\pi,\mathrm{intent},\mathrm{open},\mathrm{core},\\&\ \mathrm{ask},\mathrm{close},\mathrm{asp},\mathrm{fld},\mathcal{C},\mathrm{cons},\mathrm{score}).\end{aligned}
+\]
+ Its components are the slot, the recipient's language, the occasion, the purpose, goal and project; the subject intent; the opening move, which is \code{cite\_recipient\_evidence} when some recipient-derived certificate may be mentioned and \code{introduce\_task} otherwise; the core claim; the primary request $\mathrm{ask}=(\mathrm{action},\mathrm{obligation})$; the closing intent; the aspect partition $\mathrm{asp}=(F,O,X)$; the field map $\mathrm{fld}$; the set $\mathcal{C}$ of certificates; and the resolved constraint map $\mathrm{cons}$. A plan also carries a plan signature and a content hash.
+\end{definition}
+
+The obligation of every request in the present grammar is \code{ask\_if\_able}: the recipient is invited to help and is not instructed to. A grammar rule that expressed a demand would carry a different obligation and would be rejected at realization.
+\section{Certificates and the Assertion Calculus}\label{sec:cert}
+
+\subsection{Certificates}
+
+Each assertion that a draft may make carries a small certificate. The purpose of the certificate is to make the scope of a claim explicit, so that evidence collected for one use or one recipient cannot silently support another.
+
+\begin{definition}[Certificate]\label{def:cert}
+A certificate is $\gamma=(\mathrm{id},k,\mathrm{prop},\mathrm{src},\mathrm{rule},\mathrm{scope},u,\mathrm{fl})$ with a kind $k\in\mathcal{K}$, a proposition string, a list of source identifiers, the inference rule used (the value \code{direct} when none), a scope $(r,o,\mathrm{purpose},\pi)$, an allowed use $u\in\{\mention,\planonly\}$, and a field map $\mathrm{fl}$ of placeholder values the certificate contributes.
+\end{definition}
+
+The kind set is $\mathcal{K}=\mathcal{K}_{\mathrm{rec}}\cup\mathcal{K}_{\mathrm{proj}}$ with
+\[
+\mathcal{K}_{\mathrm{rec}}=\{\begin{aligned}[t]&\text{recipient\_offered\_help},\ \text{recipient\_commented},\ \text{recipient\_requested\_revision},\\&\text{recipient\_downloaded},\ \text{recipient\_read\_passage},\ \text{prior\_exchange}\}\end{aligned},
+\]
+\[
+\begin{aligned}[t]\mathcal{K}_{\mathrm{proj}}={}&\{\text{project\_older\_essay},\ \text{project\_in\_progress},\ \text{project\_revision},\\&\ \text{project\_argument},\ \text{project\_url}\}.\end{aligned}
+\]
+Pragmatic implications are treated exactly as factual assertions. The sentence ``Thanks again for reviewing the draft'' requires support both for the review and for the implied earlier acknowledgment, and the two are represented by the kinds $\text{recipient\_commented}$ and $\text{prior\_exchange}$.
+
+\subsection{Construction}
+
+Direct certificates of recipient kinds are built from a fixed correspondence between kinds and predicates, shown in Table~\ref{tab:kindpred}. For a kind $k$ with predicate $p$ and project scope $\mathrm{ps}$, the source is the latest record (maximal in $(t,\mathrm{id})$) among positive, plan-usable records of that predicate for the recipient, restricted to the plan's project when $\mathrm{ps}$ is \code{project}.
+
+\begin{table}[ht]
+\centering
+\caption{Certificate kinds derived directly from evidence.}\label{tab:kindpred}
+\begin{tabular}{llll}
+\toprule
+Kind & Predicate & Project scope & Fields contributed\\
+\midrule
+recipient\_offered\_help & offered\_to\_help\_with & any & offer\_topic\\
+recipient\_commented & commented\_on & plan project & comment\_topic, locator\\
+recipient\_requested\_revision & requested\_revision & plan project & none\\
+recipient\_downloaded & downloaded & plan project & none\\
+prior\_exchange & corresponded\_with & any & none\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The use of a direct certificate is $\mention$ if and only if the source record's allowed-use set contains $\mention$, and $\planonly$ otherwise. Inference rules then extend the set in a single step: for each rule $(\mathrm{id},k,k')$ and each certificate of kind $k$ that carries a locator whenever the rule requires one, a certificate of kind $k'$ is added with the same sources and use. In the reference grammar the only rule is that a comment with a locator licenses the kind $\text{recipient\_read\_passage}$. Project certificates are derived from the project record and always have use $\mention$: an older essay yields $\text{project\_older\_essay}$, status \code{revising} yields $\text{project\_in\_progress}$, the presence of a revision and revision date yields $\text{project\_revision}$ with the revision note as a field, a stated argument yields $\text{project\_argument}$, and every project yields $\text{project\_url}$.
+
+\begin{definition}[Mentionable kinds and fields]\label{def:mentionable}
+For a plan $P$ with certificate set $\mathcal{C}$ let $\Mset(P)=\{\gamma.k:\gamma\in\mathcal{C},\ \gamma.u=\mention\}$. The field map $\mathrm{fld}(P)$ consists of the author's name, the recipient's given name, the project title in the resolved style, the canonical title, the URL, the aspect values $\mathrm{argument}$ and $\mathrm{revision\_note}$ when the project has them, one defect kind chosen as $\mathrm{pick}(\mathrm{defect\_kinds};\mathrm{seed},s.\mathrm{id},\text{defect})$, and the union of the field maps of all certificates in $\mathcal{C}$ of use $\mention$ with defined values.
+\end{definition}
+
+The last clause is the formal statement of plan-only isolation: values contributed by a certificate whose use is $\planonly$ do not enter $\mathrm{fld}(P)$, so no template that uses them can be completed.
+
+\subsection{Aspect Relegation}
+
+Aspect relegation becomes an explicit planning operation. The goal's partition $(F,O,X)$ of aspect names says which aspects of the project are foregrounded, which may appear if space permits, and which are excluded. For a typesetting request the title and the kind of defect are foregrounded, the URL is optional, and the formal argument and the revision note are excluded. For a substantive follow-up the argument is foregrounded and the defect kinds are excluded. Excluded aspects remain available to the planner without appearing in the email, and Section~\ref{sec:real} states the check that enforces this on the finished text.
+
+\section{Surface Realization}\label{sec:real}
+
+\subsection{Rules}
+
+\begin{definition}[Grammar rule]\label{def:rule}
+A grammar rule is a tuple
+\[
+\begin{aligned}r={}&(\mathrm{id},\mathrm{slot},\mathrm{Pur},\mathrm{lang},\mathrm{Reg},\mathrm{Dir},\mathrm{asserts},\mathrm{implies},\mathrm{needs},\\&\ \mathrm{intro},\mathrm{follows},\mathrm{move},\mathrm{cons},\mathrm{req},\mathrm{act},\mathrm{obl},\mathrm{text},\mathrm{can}).\end{aligned}
+\]
+ The slot lies in the set $\{\text{subject},\text{greeting},\text{reason},\text{context},\text{request},\text{support},\text{closing},\text{signoff}\}$. The purposes $\mathrm{Pur}$ form a set or the wildcard. The register and directness sets state the compatible registers and levels of directness. The fields $\mathrm{asserts}$ and $\mathrm{implies}$ are sets of certificate kinds, $\mathrm{needs}$ and $\mathrm{intro}$ are sets of discourse referents, $\mathrm{follows}$ is a set of slots that may directly precede the rule, $\mathrm{move}$ is a discourse move label, $\mathrm{cons}$ is a grammatical construction label, $\mathrm{req}\in\{0,1\}$ counts requests, $\mathrm{act}$ and $\mathrm{obl}$ are present exactly when $\mathrm{slot}=\text{request}$, $\mathrm{text}$ is a template, and $\mathrm{can}$ marks canonical rules.
+\end{definition}
+
+Templates contain placeholders $\{x\}$ with $x$ in a fixed vocabulary. Two maps derive requirements from the placeholders of a template. The map $\mathrm{asp}$ sends title placeholders to the aspect $\mathrm{title}$, the URL to $\mathrm{url}$, the defect to $\mathrm{defect\_kinds}$, the argument to $\mathrm{argument}$ and the revision note to $\mathrm{revision\_note}$. The map $\mathrm{kd}$ sends the offer topic to $\text{recipient\_offered\_help}$, the comment topic and the locator to $\text{recipient\_commented}$, the revision note to $\text{project\_revision}$, the argument to $\text{project\_argument}$ and the URL to $\text{project\_url}$. The \emph{need set} of a rule is
+\[
+\need(r)=r.\mathrm{asserts}\cup r.\mathrm{implies}\cup\mathrm{kd}(\mathrm{ph}(r)),
+\]
+so a rule that uses a comment topic cannot be used unless a mentionable comment certificate exists, whether or not its author declared the dependency.
+
+\subsection{Eligibility}
+
+\begin{definition}[Rule eligibility]\label{def:ruleelig}
+A rule $r$ is eligible for a plan $P$ when all of the following hold: its purposes contain the plan's purpose or the wildcard; its language equals the plan's language; its register set meets the resolved register set; its directness set meets the resolved directness set; $\need(r)\subseteq\Mset(P)$; $\mathrm{ph}(r)\subseteq\mathrm{dom}(\mathrm{fld}(P))$; $\mathrm{asp}(\mathrm{ph}(r))\subseteq F\cup O$ and $\mathrm{asp}(\mathrm{ph}(r))\cap X=\emptyset$; and, for request rules, $r.\mathrm{act}$ equals the plan's action.
+\end{definition}
+
+\subsection{Discourse Orders and Candidate Identifiers}
+
+The separation of planning from realization follows the standard architecture of natural language generation systems \cite{reiterdale2000}. A draft is realized in one of three discourse orders, each a sequence of slots.
+\begin{align*}
+\omega_{1}&=\text{(greeting, reason, context, request, support, closing, signoff)},\\
+\omega_{2}&=\text{(greeting, request, reason, support, closing, signoff)},\\
+\omega_{3}&=\text{(greeting, context, reason, request, support, closing, signoff)}.
+\end{align*}
+These capture the choice to lead with the request, to establish why the recipient was chosen first, or to introduce the project first. The slot $\text{support}$ is optional and every other slot is required. The subject line is realized by a subject rule using the same plan and the same checks as the body.
+
+\begin{definition}[Candidate]\label{def:cand}
+A candidate for $P$ is a tuple $c=(\omega,r_{\mathrm{sub}},r_1,\dots,r_n)$ with $\omega\in\{\omega_1,\omega_2,\omega_3\}$, a subject rule, and one rule (or the symbol $-$ for the optional slot) per slot of $\omega$. Its identifier is the string $\omega\,|\,r_{\mathrm{sub}}.\mathrm{id}\,|\,r_1.\mathrm{id}\,|\cdots$. The set of all candidates for $P$ whose rules are eligible is $\Omega(P)$, and
+\[
+|\Omega(P)|=\sum_{\omega}\,|R_{\mathrm{sub}}|\prod_{x\in\omega}\bigl(|R_x|+\mathbf{1}[x=\text{support}]\bigr)
+\]
+where $R_x$ is the set of eligible rules for slot $x$.
+\end{definition}
+
+A candidate is built from its identifier alone. Any draft can therefore be reconstructed from a plan and a rule path, which is what lets an awkward sentence be traced to its construction and turned into a focused regression case.
+
+\subsection{Validity}
+
+Text is assembled by filling placeholders from $\mathrm{fld}(P)$. A greeting forms its own paragraph and a sign-off forms the last. The request and the closing each begin a new paragraph, and all other slots join the current paragraph.
+
+\begin{definition}[Validity]\label{def:valid2}
+A candidate $c$ is \emph{valid} for $P$, written $\Valid(P,c)$, when all of the following conditions hold. Let $\mathrm{cons}=P.\mathrm{cons}$.
+\begin{description}[leftmargin=1.2em,labelsep=0.6em,itemsep=0.1em]
+\item[V1] The identifier is well formed and has one entry per slot of its order.
+\item[V2] Every rule named is eligible for $P$ and belongs to the slot in which it appears.
+\item[V3] For every rule with a non-empty $\mathrm{follows}$ set, the slot immediately preceding it in the draft belongs to that set.
+\item[V4] For every rule, $r.\mathrm{needs}$ is contained in the union of the $\mathrm{intro}$ sets of the rules before it.
+\item[V5] No discourse move occurs twice, unless the rules declare it repeatable.
+\item[V6] The request rule has action and obligation equal to $P.\mathrm{ask}$.
+\item[V7] The request counts sum to exactly one and do not exceed $\mathrm{cons}(\text{max\_requests})$.
+\item[V8] No placeholder remains unresolved in the subject or body.
+\item[V9] For every trigger $(\text{pattern},k)$ of the lexicon that matches the subject or body, $k\in\Mset(P)$.
+\item[V10] No forbidden character, forbidden phrase or emoji occurs.
+\item[V11] The body has at most $\mathrm{cons}(\text{max\_words})$ words.
+\item[V12] The subject has at most 90 characters.
+\item[V13] The resolved title occurs in the body at most $\mathrm{cons}(\text{title\_max\_mentions})$ times.
+\item[V14] For every excluded aspect $x\in X$, no value of that aspect occurs, compared case-insensitively, in the subject or body.
+\item[V15] At most one rule of the draft uses the URL aspect.
+\end{description}
+\end{definition}
+
+\subsection{Properties}
+
+\begin{theorem}[Certificate coverage]\label{thm:cover}
+If $\Valid(P,c)$, then every rule of $c$ satisfies $\need(r)\subseteq\Mset(P)$, and every trigger of the lexicon that matches the rendered subject or body has its kind in $\Mset(P)$. Consequently each explicit assertion, each declared pragmatic implication and each lexically detectable pragmatic implication of the draft is covered by a certificate of use $\mention$.
+\end{theorem}
+\begin{proof}
+The first claim follows from V2 and Definition~\ref{def:ruleelig}. The second is V9. The consequence restates these two facts using Definition~\ref{def:mentionable}.
+\end{proof}
+
+The theorem is relative to what rules declare and what the lexicon can detect. A lexical trigger is a heuristic safeguard against mislabelled rules. It cannot exhaust the pragmatic implications of free prose, and Section~\ref{sec:limits} returns to this.
+
+\begin{proposition}[Request preservation]\label{prop:req}
+Let $c$ be valid for $P$. Then $c$ contains exactly one request rule, and its action and obligation equal those of $P$. Hence no choice among direct questions, conditional invitations and statement-question forms can change the requested action or its obligation.
+\end{proposition}
+\begin{proof}
+V7 gives exactly one request and V6 equates its action and obligation with the plan's. Definition~\ref{def:ruleelig} already restricts request rules to the plan's action.
+\end{proof}
+
+\begin{proposition}[Plan-only isolation]\label{prop:isolation}
+Suppose that for a kind $k$ every certificate of kind $k$ has use $\planonly$. Then no valid candidate contains a rule with $k\in\need(r)$, and no valid candidate fills a placeholder whose only source is a certificate of kind $k$.
+\end{proposition}
+\begin{proof}
+Then $k\notin\Mset(P)$, so rules with $k\in\need(r)$ are ineligible. The values of such certificates are excluded from $\mathrm{fld}(P)$ by Definition~\ref{def:mentionable}, so every rule using them has $\mathrm{ph}(r)\not\subseteq\mathrm{dom}(\mathrm{fld}(P))$ and is ineligible.
+\end{proof}
+
+\begin{proposition}[Aspect exclusion]\label{prop:aspect}
+For every valid candidate and every $x\in X$, neither any rule used nor the finished text contains the value of aspect $x$.
+\end{proposition}
+\begin{proof}
+Rule-level exclusion is Definition~\ref{def:ruleelig}. Text-level exclusion is V14.
+\end{proof}
+
+\begin{remark}[Referents]
+Condition V4 makes pronoun resolution a checked property. A request phrased as ``look through it for overfull lines'' needs the project to have been introduced earlier in the draft, so it cannot occur first in a request-leading order, where only the full-title variant of the request is admissible. Validation additionally rejects any rule whose template contains a pronoun or definite reference but declares no referent and contains no title placeholder.
+\end{remark}
+
+\subsection{Candidate Generation and Fallback}
+
+For each eligible plan the renderer samples a bounded set of candidate identifiers. For $i=0,\dots,K-1$ the order is $\mathrm{pick}(\{\omega_1,\omega_2,\omega_3\};\mathrm{seed},s.\mathrm{id},\text{render},\text{order},i)$, and each slot rule is drawn likewise with the slot name in place of the stage component, with $-$ included among the options for the support slot. The sampled identifiers are deduplicated and sorted. Each is built and tested for validity, and the valid ones form the set $V(P)$.
+
+Sampling does not depend on validity. This is a deliberate property used in Section~\ref{sec:det}: the set of sampled identifiers is a function of the plan, the seed and the eligible rule lists alone. If $V(P)=\emptyset$, the renderer tries a \emph{canonical rendering}, the order $\omega_1$ with the first canonical eligible rule in each required slot and no support. If that candidate is invalid the slot records a rendering failure whose reason names the first violated condition. The canonical rendering is an escape from gaps in the sampled set and does not widen what the grammar can say.
+
+\section{Determinism and Reproducibility}\label{sec:det}
+
+\subsection{Seeds and Selection}
+
+Every random choice in the system is a value of $h$ over the master seed, the slot identifier, a stage name and a choice identifier. The reference date supplies every date comparison. The planner and the renderer are therefore pure functions: for a fixed snapshot, engine, seed, date, band, sample size and slot, they return the same plan and the same candidate set on every machine and in every process.
+
+\begin{definition}[Selection rank]
+For a slot $s$, a seed and a candidate identifier $c$, let $\rank_s(c)=\bigl(h(\mathrm{seed},s.\mathrm{id},\text{select},c),\,c\bigr)$ under the lexicographic order. The \emph{selected} candidate of a non-empty set $V$ is $\argmin_{c\in V}\rank_s(c)$, and the order of fallbacks under a distinctness constraint is increasing rank.
+\end{definition}
+
+Rank is a function of the candidate identifier and the slot alone. It does not depend on the other members of $V$, and that is what makes the next result possible.
+
+\begin{theorem}[Stability of selection]\label{thm:stable}
+Let $P$ and $P'$ be plans for the same slot with the same eligible rule lists, so that the sampled identifier sets coincide, and suppose every valid candidate of $P'$ is valid for $P$, that is $V(P')\subseteq V(P)$. Let $c$ be the candidate selected from $V(P)$. If $c\in V(P')$ then $c$ is also selected from $V(P')$. If $c\notin V(P')$ then the selection changes, to the minimum-rank member of $V(P')$ or to a failure if $V(P')=\emptyset$.
+\end{theorem}
+\begin{proof}
+Since $\rank_s$ is a fixed total order on identifiers, the minimum of a subset that contains the minimum of the superset is that same element. If the minimum of $V(P)$ was removed, the minimum of the remaining set is a different element, or the set is empty.
+\end{proof}
+
+\begin{corollary}[Predictable effect of tightening a constraint]\label{cor:predict}
+Let a change to the preferences affect only the conditions that read the resolved constraint map, namely V7, V10, V11 and V13, and not the resolved register or directness, so that eligible rule lists are unchanged, and let it only tighten those conditions. Then the draft of a slot changes if and only if the previously selected candidate violates the new constraint.
+\end{corollary}
+
+This is the form in which the final criterion of the specification is met. For example, lowering the permitted number of title mentions for one occasion changes exactly those drafts whose chosen text mentioned the title more often than the new limit. Section~\ref{sec:accept} describes the test that checks this over a batch. Because rank is computed per candidate and not by position in a list of valid candidates, tightening a constraint cannot reshuffle drafts it does not invalidate.
+
+\subsection{Execution Independence}
+
+Batch generation has two stages.
+
+\begin{definition}[Stages]\label{def:stages}
+\emph{Stage A} computes, for each slot, the plan or abstention and the bounded candidate list, and commits them to a staging table. It is a pure function of the slot. \emph{Stage B} traverses the slots in increasing index. For each slot it appends ledger events, and for planned slots it selects the first candidate in increasing rank that is not already reserved (when distinctness is required), reserves its fingerprint, re-renders the draft from the plan and the candidate identifier, and commits the draft, the state change and the events in one transaction group.
+\end{definition}
+
+\begin{theorem}[Independence from schedule]\label{thm:sched}
+Fix a manifest, a snapshot and an engine identity. The final contents of the draft table, the fingerprint reservations and the ledger are the same for every number of workers, every partition of slots into stage A chunks, and every pattern of interruption and resumption in which each chunk and each transaction group commits atomically.
+\end{theorem}
+\begin{proof}
+Stage A results are pure functions of the slot, so their values do not depend on which worker computed them or on the order in which chunks complete, and a chunk that was committed before an interruption is not recomputed to a different value. Stage B is a single sequential process over slots in index order. The state after processing slot $i$, namely the reserved fingerprints, the ledger head and the table contents, is determined by the state after slot $i-1$ and the stage A result for slot $i$. A transaction group either commits fully or not at all, so after an interruption the committed state equals the state after some prefix of the slots, and resumption proceeds from the first slot not in the prefix. By induction on $i$ the final state equals the state of an uninterrupted serial run.
+\end{proof}
+
+Two points are essential to the proof and to the implementation. Ledger events for planning, abstention, rendering and validation are written in stage B and not in stage A, since stage A chunks may complete in any order and would otherwise make the ledger depend on scheduling. And the uniqueness constraint on the pair of batch and slot prevents a retried slot from producing a second result.
+
+\subsection{Engine Identity on Resume}
+
+The preceding theorem assumes the same engine throughout. A resumed run that processed pending slots with changed code while retaining results of the old code would break reproducibility, and the check that the manifest and snapshot match is not enough to prevent this.
+
+\begin{definition}[Engine identity]\label{def:engine}
+The engine identity is the triple $(\mathrm{version},\mathrm{schema},\mathrm{code})$ where $\mathrm{version}$ and $\mathrm{schema}$ are the engine and schema version numbers and $\mathrm{code}=\Hash\bigl(\canon(\{(\mathrm{name},\Hash(\mathrm{bytes})):\ \text{engine source files}\})\bigr)$. The identity is recorded when a batch is created.
+\end{definition}
+
+\begin{proposition}[Resume check]\label{prop:resume}
+A run directory is resumed only if its recorded manifest hash, snapshot hash and engine identity equal the current ones. If any component of the identity differs, resumption stops before any pending slot is processed and names the differing components. A directory with no recorded identity cannot be resumed.
+\end{proposition}
+\begin{proof}
+The procedure compares the three recorded values with the current ones in turn and raises an error on any mismatch, before the first stage A chunk is scheduled. The source hash is included so that a code change without a version change is detected as well.
+\end{proof}
+
+The comparison of source digests is conservative. A harmless edit to a comment changes the digest and forces a restart. The cost of a spurious restart is bounded by the cost of the batch, whereas the cost of a missed difference is a silently inconsistent batch.
+\section{Diversity, Capacity and Distinctness}\label{sec:div}
+
+\subsection{Three Separate Measures}
+
+A single count of distinct drafts conflates variation of three kinds that have different meanings. A draft can differ from another only because a recipient's name was substituted, or only because a synonymous clause was chosen, or because it has a different purpose, evidence base and request. The program therefore records three measures and reports them separately.
+
+\begin{definition}[Normalization and fingerprint]\label{def:fp}
+Let $\nu(x)$ be the string obtained from $x$ by Unicode normalization to NFC, deletion of every substring that matches the address pattern, collapse of every maximal run of whitespace to a single space, and trimming. The \emph{text fingerprint} of a draft with subject $a$ and body $b$ is the first 128 bits of $\Hash(\nu(a)\,\Vert\,\mathrm{newline}\,\Vert\,\nu(b))$.
+\end{definition}
+
+\begin{definition}[Structural and plan signatures]\label{def:sig}
+The \emph{structural signature} of a candidate is the first 48 bits of $\Hash(\omega\,\Vert\,\text{``:''}\,\Vert\,\mathrm{cons}(r_{\mathrm{sub}}).\mathrm{cons}(r_1).\cdots.\mathrm{cons}(r_n))$, which depends on the discourse order and the sequence of grammatical constructions and not on the words chosen or the names used. The \emph{plan signature} of a plan is the first 48 bits of $\Hash$ applied to the concatenation of its purpose, project, requested action, opening move, the sorted recipient-derived mentionable kinds, the sorted foregrounded aspects and the chosen defect kind. It measures diversity of purposes, evidence categories, requests and foregrounded material.
+\end{definition}
+
+A change of name alters the text fingerprint and leaves both other signatures unchanged, so name substitution contributes to the first measure only. The audit report prints the number of distinct values of each measure.
+
+\begin{proposition}[Fingerprint collisions]\label{prop:collide}
+Under the usual idealization of SHA-256 as a random function, the probability that two distinct normalized texts among $n$ share a fingerprint is at most $n(n-1)/2^{129}$. For $n=10^{6}$ this is less than $1.5\times10^{-27}$.
+\end{proposition}
+\begin{proof}
+This is the standard birthday bound on 128-bit values: there are $\binom{n}{2}$ pairs and each collides with probability $2^{-128}$. The numeric bound follows from $\binom{10^6}{2}<5\times10^{11}$ and $2^{128}>3.4\times10^{38}$.
+\end{proof}
+
+\subsection{Distinctness Constraints and Capacity}
+
+In experiment mode a batch may require distinct normalized text. Stage B then reserves each accepted fingerprint in a table keyed by batch and fingerprint, and a slot takes the first candidate in increasing rank whose fingerprint reservation succeeds. A slot for which every valid candidate is already reserved records the failure \code{variation\_exhausted}.
+
+\begin{definition}[Capacity]\label{def:capacity}
+For a plan $P$ the \emph{capacity} $N(P)$ is the number of distinct normalized texts over all valid candidates, $N(P)=\bigl|\{F(c):c\in\Omega(P),\ \Valid(P,c)\}\bigr|$ with $F$ the text fingerprint. A scenario's capacity is the number of distinct texts over the plans it can produce, and is at least the largest capacity of any one of them.
+\end{definition}
+
+Because every candidate is rendered by a deterministic function of its identifier, $N(P)\le|\Omega(P)|$, and equality fails only when distinct rule paths yield equal text or when candidates are invalid. The raw size $|\Omega(P)|$ is exact from Definition~\ref{def:cand}. The fraction of valid candidates was estimated by sampling and is reported in Section~\ref{sec:impl}.
+
+A requested batch size is a capacity target, not a promise. Two distinct mechanisms can leave a slot without a draft under a distinctness constraint, and they must not be confused. The first is exhaustion of the grammar, when the number of slots drawn from one scenario approaches its capacity. The second is the bounded sample: each slot examines only the $K$ candidates it sampled, of which only $v$ are valid, and a slot with small $v$ fails whenever all of those few happen to be reserved, even when most of the grammar is untouched. Under an idealization in which the $v$ valid candidates are independent uniform draws from a capacity of $N$ texts and $m$ texts are already reserved, the failure probability of a slot is approximately $(m/N)^{v}$, and the expected number of failures in a scenario with $T$ trials and valid-count distribution $\Pr[v]$ is
+\[
+\mathbb{E}[\mathrm{failures}]\;\approx\;\sum_{m=0}^{T-1}\ \sum_{v\ge1}\Pr[v]\,(m/N)^{v}.
+\]
+The idealization ignores deduplication within a sample and the non-uniform distribution of texts under uniform sampling of rule paths, and Section~\ref{sec:impl} shows that it underestimates the observed count. We use it only to indicate order of magnitude and to explain why increasing $K$ helps, since each added valid candidate multiplies the failure probability by a factor of $m/N<1$.
+
+\section{Ledger, Storage and Audit}\label{sec:ledger}
+
+\subsection{Slot States and Events}
+
+Each slot of a batch occupies exactly one state at a time. The transitions are
+\[
+\text{pending}\to\text{staged}\to\{\text{drafted},\ \text{abstained},\ \text{failed}\},\qquad\text{drafted}\to\text{exported},
+\]
+and no other transition is permitted. The first transition is made by stage A, the second by stage B, and the last by export. The ledger records events of the kinds shown in Table~\ref{tab:events}.
+
+\begin{table}[ht]
+\centering
+\caption{Ledger event kinds and the transitions that write them.}\label{tab:events}
+\small
+\begin{tabular}{llp{6.6cm}}
+\toprule
+Event & Written by & Meaning\\
+\midrule
+batch\_created & start & Manifest hash, snapshot hash, engine identity, seed, date, slot count\\
+slot\_planned & stage B & Plan hash, purpose, goal, project, score\\
+slot\_abstained & stage B & Abstention reason\\
+slot\_failed & stage B & Rendering failure or exhausted variation\\
+slot\_rendered & stage B & Fingerprint and rule path of the chosen candidate\\
+slot\_validated & stage B & Count of mentionable certificates backing the draft\\
+slot\_exported & export & Format and digest of the exported record\\
+batch\_completed & end & Counts by state\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hash Chain}
+
+\begin{definition}[Ledger]\label{def:ledger}
+A ledger is a sequence of events $e_1,e_2,\dots$ with $e_n=(\mathrm{kind},\mathrm{slot},\mathrm{record},\mathrm{payload})$, together with digests defined by $\eta_0=0^{256}$ and $\eta_n=\Hash(\eta_{n-1}\,\Vert\,\canon(e_n))$. The \emph{record} field is the digest of the object the event concerns, such as a plan, a fingerprint or an exported line, linking the event to that object. The \emph{head} is the last digest.
+\end{definition}
+
+The construction is the standard hash chain \cite{merkle1990}, and it is deliberately free of wall-clock timestamps, so that two runs that agree on every decision produce the same head.
+
+\begin{theorem}[Tamper evidence]\label{thm:chain}
+Assume $\Hash$ is collision resistant. If a stored ledger passes verification, that is, recomputing $\eta_n$ from $\eta_{n-1}$ and $e_n$ reproduces the stored digest for every $n$, then it equals the ledger that produced its head, up to computationally infeasible collision search. Any modification, reordering or deletion of an event other than a suffix changes the head.
+\end{theorem}
+\begin{proof}
+Suppose two distinct sequences of events yield the same head. Take the last index at which the pair $(\eta_{n-1},e_n)$ differs between them. The two inputs to $\Hash$ at that index differ, while the outputs agree, which is a collision. A deleted or inserted event shifts the indices from that point, so the same argument applies at the first affected position.
+\end{proof}
+
+Two caveats limit the practical statement. Database triggers that reject updates and deletes make accidental modification fail, but they are not a cryptographic protection, because a party with write access to the file can remove them. The chain detects such edits afterwards, but truncation of a suffix is detected only if the head is recorded elsewhere. The audit therefore prints the head so that it can be stored independently.
+
+\subsection{Accounting}
+
+\begin{definition}[Accounting identity]\label{def:account}
+Let $n_{\mathrm{pend}},n_{\mathrm{stag}},n_{\mathrm{draft}},n_{\mathrm{abst}},n_{\mathrm{fail}},n_{\mathrm{exp}}$ be the numbers of slots in each state and $N_s$ the number of slots in the batch. A batch is \emph{complete} when $n_{\mathrm{pend}}=n_{\mathrm{stag}}=0$, and then it must satisfy
+\[
+N_s=n_{\mathrm{draft}}+n_{\mathrm{exp}}+n_{\mathrm{abst}}+n_{\mathrm{fail}}.
+\]
+The ledger \emph{agrees} with the tables when the number of abstention events equals $n_{\mathrm{abst}}$, the number of failure events equals $n_{\mathrm{fail}}$, the number of validation events equals $n_{\mathrm{draft}}+n_{\mathrm{exp}}$, and the number of distinct slots with an export event equals $n_{\mathrm{exp}}$.
+\end{definition}
+
+\begin{proposition}[Maintenance of the identities]\label{prop:account}
+After every committed transaction group of stage B and every committed export, the ledger agrees with the tables, and the accounting identity holds whenever the batch is complete.
+\end{proposition}
+\begin{proof}
+Each slot transition writes its ledger events and its state change in the same transaction. A slot ends in exactly one terminal state through exactly one of the abstention, failure or validation paths, and moves from drafted to exported exactly once because the export event is written only for slots found in the drafted state. Atomic commit \cite{grayreuter1993} makes the observable state equal the state after some whole number of such transitions.
+\end{proof}
+
+The audit verifies the chain, the agreement of the ledger with the tables, and the accounting identity, and exits with a failure status when any of them is violated. A completed run that produced only partial output therefore remains visible as such, and failures are reported by reason and not folded into totals.
+
+\subsection{Storage Layout}
+
+Table~\ref{tab:storage} lists the batch tables. Two choices are made for scale. Stage A stores the plan as a compressed blob and each sampled candidate as an identifier, a fingerprint and a structural signature, with no text, because the text is a deterministic function of the plan and the identifier and is re-rendered at selection. And stage B checks, after re-rendering, that the fingerprint equals the stored one, and records a failure \code{rerender\_mismatch} if it does not, so a grammar change between stages cannot pass unnoticed even apart from the engine identity check.
+
+\begin{table}[ht]
+\centering
+\caption{Tables of the batch database.}\label{tab:storage}
+\begin{tabular}{p{3cm}p{9.5cm}}
+\toprule
+Table & Content\\
+\midrule
+meta & Manifest and its hash, snapshot path and hash, engine identity, slot count, timing, completion flag\\
+slot\_state & One row per slot with index, state and reason; unique on batch and slot\\
+stage\_a & Stage A result per slot: status, reason, compressed plan, candidate list, purpose, plan signature\\
+draft & Chosen subject and body, fingerprint, structural and plan signatures, rule path, purpose, project\\
+fingerprint & Reserved fingerprints, unique on batch and fingerprint\\
+ledger & Hash-chained events; updates and deletes refused by trigger\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Export}
+
+Export reads committed drafts in stable slot order and writes each output through a temporary file followed by an atomic rename. Formats are JSON Lines for analysis, plain text for review, and \code{.eml} drafts marked unsent for a mail client. Recipient addresses are resolved only for the \code{.eml} format, from a separate file keyed by address reference, and an unresolved reference yields an explicit placeholder in the header. Experiment batches refuse \code{.eml} export, since their recipients are fictional. The JSON Lines export can omit evidence propositions, which is the form intended for audit, where recipients appear only by stable identifier.
+
+\section{Offline Maintenance}\label{sec:maint}
+
+The generator runs with no model. A local model served by Ollama, such as Granite, is an optional tool for maintaining the rules, not part of generation.
+
+\begin{definition}[Maintenance packet]
+A maintenance packet for a completed batch consists of anonymized failure and abstention traces, grammar coverage (the rules never used and the most used), the most repeated adjacent rule pairs with their shares of all drafts, the output of the test suite when requested, the sources of the grammar and of the evaluator, and a fixed instruction asking for a patch tied to observed examples that leaves factual certificates unchanged.
+\end{definition}
+
+Anonymization maps each slot identifier $x$ to a tag formed from a prefix of $\Hash(\text{maintenance}\,\Vert\,x)$ and carries no recipient names, so a packet reveals the structure of failures and nothing of the recipients. A model's reply, when requested, is written to a file and never applied.
+
+\begin{definition}[Repair cycle]\label{def:repair}
+A repair begins with a precise observation $o$, such as the observation that direct requests following a long context paragraph often repeat the title. The maintenance pass identifies the discourse paths that produce the observation and proposes a patch $\Delta$ that turns the grammar $G$ into $G'$. A regression fixture $\varphi_o$ is a test that fails under $G$ and passes under $G'$. A patch is \emph{accepted} when $\varphi_o$ passes under $G'$, the memory validates, the fixed regression corpus and the semantic tests pass under $G'$, and the certificates of every plan in the corpus are unchanged.
+\end{definition}
+
+The last condition is automatic for grammar patches, because certificates are produced by the planner from evidence and are independent of the grammar, but it is stated because a patch to the evaluator could change them. After acceptance the repair persists in the versioned inputs, and later runs receive its benefit without consulting any model. The title-limit test of Section~\ref{sec:accept} is an instance: it checks that the title occurs at most once in the occasion that limits it, that the request remains intact, and that the factual certificates are the same.
+
+\section{Acceptance Criteria}\label{sec:accept}
+
+Acceptance begins with semantic tests. Each criterion below is stated as a formal property and is paired with the tests of the reference implementation that check it.
+
+\begin{table}[ht]
+\centering
+\caption{Acceptance criteria, their formal statements and the checking tests.}\label{tab:accept}
+\small\raggedright
+\begin{tabular}{p{0.5cm}p{5.2cm}p{6.2cm}}
+\toprule
+ & Criterion & Checking tests (names abbreviated)\\
+\midrule
+A1 & Removing the unique witness of a required record makes the dependent plan ineligible (Corollary~\ref{cor:removal}) & removing\_required\_evidence\\
+A2 & Changing a fact outside the scope of a plan leaves plan and candidates identical & irrelevant\_change\\
+A3 & Surface variation preserves the requested action and every asserted proposition (Theorem~\ref{thm:cover}, Proposition~\ref{prop:req}) & variation\_preserves\_action; every\_draft\_traces\\
+A4 & Wording that implies a prior exchange fails without support & unsupported\_prior\_exchange; prior\_exchange\_requires\_evidence\\
+A5 & Expired goals, conflicting preferences and unknown facts have their specified outcomes & expired\_goal; revision\_date\_boundary; already\_received; both preference-conflict tests; unknown\_and\_plan\_only\\
+A6 & Plan-only evidence never reaches text (Proposition~\ref{prop:isolation}) & unknown\_and\_plan\_only; downloaded\_supports\_only\_downloaded\\
+A7 & Excluded aspects stay out of text (Proposition~\ref{prop:aspect}) & excluded\_aspects\\
+A8 & Output is independent of workers and interruption, and a changed engine blocks resume (Theorem~\ref{thm:sched}, Proposition~\ref{prop:resume}) & identical\_across\_workers; interruption; resume\_refuses\_changed\_engine; resume\_no\_duplicates\\
+A9 & Tightening a constraint changes exactly the predicted drafts (Corollary~\ref{cor:predict}) & preference\_change\_predicts\_drafts\\
+A10 & Ledger immutability, snapshot tamper detection, regeneration agreement and export accounting & ledger\_append\_only; snapshot\_detects\_edits; regeneration\_matches; export\_accounting; correspondence\_mode\_eml\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The initial scale target is 10,000 synthetic drafts, with a review sample drawn across purposes, grammar rules and failure categories. A separate million-slot benchmark is intended to measure throughput, memory use, collision handling and restart behavior, and to compare output hashes across serial, parallel and interrupted runs. The more consequential test, in the words of the specification, is whether a project fact or a preference can be changed, the affected drafts predicted, and the engine verified to change those drafts and no others for the stated reason. Criterion A9 is the formal version of that test.
+\section{Reference Implementation and Measurements}\label{sec:impl}
+
+\subsection{Structure}
+
+The reference implementation is a Bash entry point over a Python engine of roughly two thousand lines, with SQLite for storage and TOML for the grammar, the preferences and the batch manifests. Table~\ref{tab:modules} maps the modules to the sections of this document.
+
+\begin{table}[ht]
+\centering
+\caption{Modules of the reference implementation and the sections that specify them.}\label{tab:modules}
+\begin{tabular}{lll}
+\toprule
+Module & Responsibility & Section\\
+\midrule
+\code{memory} & Loading, validation and evaluation of evidence & \ref{sec:model}, \ref{sec:logic}\\
+\code{prefs} & Layered preference resolution & \ref{sec:prefs}\\
+\code{planner} & Eligibility, scoring, selection, certificates & \ref{sec:plan}, \ref{sec:cert}\\
+\code{rules}, \code{realize} & Grammar, candidates, validity, fallback & \ref{sec:real}\\
+\code{batch} & Snapshots, stages A and B, audit, export & \ref{sec:det}, \ref{sec:ledger}\\
+\code{store} & SQLite schema, ledger and triggers & \ref{sec:ledger}\\
+\code{maintain} & Maintenance packet & \ref{sec:maint}\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Corpus}
+
+The first release uses a fictional corpus, so that no real person appears in any experiment. It contains 15 evidence records, 3 goals, 5 projects, 12 recipients, 17 preferences and 9 trigger-lexicon entries. The grammar has 90 rules across three purposes, and the planner's canonical fallback has 15 rules. Appendix~\ref{app:inventory} gives the inventory.
+
+\subsection{Measurements}
+
+All figures below were measured on two cores of a development container and are single observations, not distributions.
+
+\begin{table}[ht]
+\centering
+\caption{Measured batches. Abstentions in the experiment batches are by design.}\label{tab:runs}
+\begin{tabular}{lrrrrr}
+\toprule
+Batch & Slots & Drafts & Abstained & Failed & Distinct texts\\
+\midrule
+Experiment & 10,008 & 5,838 & 4,170 & 0 & 5,838\\
+Experiment, large & 100,008 & 58,336 & 41,670 & 2 & 58,336\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For the 10,008-slot batch the distinct counts were 76 structural signatures and 27 plan signatures. The 4,170 abstentions correspond to five recipients for whom no purpose has a supported reason, and are the expected outcome of the abstention rules of Section~\ref{sec:plan}. The 100,008-slot batch took about 60 seconds, a rate near $1.6\times10^{3}$ slots per second. Both of its failures were \code{variation\_exhausted}, and inspection showed that the two slots had one and two valid candidates among their twelve sampled, so by the analysis of Section~\ref{sec:div} they reflect the sample bound and not the capacity of the grammar. The serial, two-worker and interrupted-and-resumed runs of the 10,008-slot batch produced identical output hashes and ledger heads, which is an empirical instance of Theorem~\ref{thm:sched}.
+
+Capacity, estimated by sampling the path space, is about $6.0\times10^{5}$ to $7.8\times10^{5}$ distinct texts per scenario for most recipients, about $1.65\times10^{5}$ for the revision purpose, and about $1.08\times10^{5}$ for the comment case without mentionable evidence. These are estimates from sampling, not exact counts, and no confidence interval is reported.
+
+\subsection{Million-Slot Benchmark}
+
+A benchmark manifest defines a batch of one million slots, but it has \emph{not been executed}. Extrapolating the measured rate gives about ten minutes and about 3.3 GB of storage, and these are extrapolations, not results. With 83,334 trials per scenario the batch approaches the capacity of the two smallest scenarios, so some \code{variation\_exhausted} slots are predicted for them, and the report is designed to state the shortfall. The predicted counts rest on the idealization of Section~\ref{sec:div}, which underestimated the observed failures, and they should be treated as indicative only.
+
+\section{Limitations and Open Problems}\label{sec:limits}
+
+This section states what the specification does not guarantee, so that the guarantees above are not read more broadly than they are given.
+
+\begin{enumerate}[label=\textbf{L\arabic*.},leftmargin=*]
+\item \textbf{Lexical incompleteness of the implication lint.} Condition V13 detects implications by a finite trigger lexicon. Theorem~\ref{thm:cover} is therefore a guarantee relative to the lexicon: a phrase that implies an unsupported claim but matches no entry passes. The lexicon is extended by the repair cycle, which is reactive.
+\item \textbf{Unknown disqualifiers.} A disqualifier whose truth value is unknown does not block a plan, and the unknown is recorded. This favors availability over caution. A deployment that prefers caution can treat unknown as true for selected disqualifiers, at the price of more abstentions.
+\item \textbf{Recency of binds.} Binds take the most recent matching record, so adding evidence can change a bound variable and thereby change a downstream result (Remark~\ref{rem:bind}). The monotonicity result is confined to the positive fragment.
+\item \textbf{Partial preference validation.} Validation checks the reference date and the window endpoints only. Preference sets that conflict on some other date in an overlapping window are detected at planning time, as an error for the affected plan, not at load time.
+\item \textbf{Bounded sampling.} Each slot examines $K$ sampled candidates, so a distinctness constraint can fail a slot while unexamined valid candidates remain. The failure model of Section~\ref{sec:div} is an idealization that underestimates.
+\item \textbf{Fictional corpus.} The measurements concern fictional recipients and fictional evidence. They show that the machinery is consistent and deterministic, and they say nothing about the quality of drafts for real correspondence, which requires review by the person on whose behalf drafts are written.
+\item \textbf{Name substitution.} A name change alters the text fingerprint and no other signature, so counts of distinct text overstate substantive variety. The three measures of Section~\ref{sec:div} are reported separately for this reason.
+\item \textbf{Language coverage.} The grammar realizes English only, and plans for other languages abstain with the reason \code{unsupported\_language}.
+\item \textbf{Ledger scope.} The hash chain gives tamper evidence, not tamper resistance, and detects suffix truncation only against an independently stored head.
+\item \textbf{Unexecuted benchmark.} The million-slot behavior is predicted, not measured.
+\end{enumerate}
+
+\appendix
+
+\section{Grammar Rule Schema and Inventory}\label{app:inventory}
+
+\subsection{Rule Schema}
+
+A rule is a record with the fields of Table~\ref{tab:schema}. The template is a string with placeholders in braces, from which the set of knowledge kinds the rule needs is derived (Section~\ref{sec:real}).
+
+\begin{table}[ht]
+\centering
+\caption{Fields of a grammar rule.}\label{tab:schema}
+\begin{tabular}{lp{9.5cm}}
+\toprule
+Field & Meaning\\
+\midrule
+id & Unique identifier within a slot and purpose\\
+slot & One of subject, greeting, reason, context, request, support, closing, signoff\\
+purpose & The purposes for which the rule is eligible\\
+asserts & Propositions the rule's text commits to\\
+implies & Propositions the rule's text suggests without stating\\
+register & Formal, neutral or familiar, matched to the resolved register\\
+directness & Direct, moderate or indirect, matched to the resolved directness\\
+construction & A label naming the syntactic frame, used for the structural signature\\
+template & Text with placeholders\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Inventory}
+
+Table~\ref{tab:inventory} lists the number of rules per slot for each of the three purposes, as reported by the reference implementation. Entries separated by slashes are the counts for the three purposes in the order of Section~\ref{sec:plan}; single entries apply to all three, and the closing slot also has one rule specific to each purpose.
+
+\begin{table}[ht]
+\centering
+\caption{Grammar rule counts by slot.}\label{tab:inventory}
+\begin{tabular}{lc}
+\toprule
+Slot & Rules per purpose\\
+\midrule
+subject & 5 / 5 / 4\\
+greeting & 4\\
+reason & 7 / 9 / 5\\
+context & 4 / 4 / 3\\
+request & 6 / 8 / 5\\
+support & 3 / 2 / 2\\
+closing & 6 shared $+$ 1 per purpose\\
+signoff & 5\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Algorithms}\label{app:algs}
+
+\begin{algorithm}[ht]
+\caption{Plan generation for one slot}\label{alg:plan}
+\KwIn{recipient $a$, date $d$, snapshot $\Kt$, resolved preferences}
+\KwOut{a plan or an abstention with a reason}
+\lIf{the recipient's language is unsupported}{\Return abstain(\code{unsupported\_language})}
+\lIf{$a$ is excluded by a hard preference}{\Return abstain(\code{recipient\_excluded})}
+$\mathcal{G}\leftarrow$ goals active at $d$\;
+\lIf{$\mathcal{G}=\emptyset$}{\Return abstain(\code{no\_active\_goal})}
+$\mathcal{C}\leftarrow\{(g,p)\in\mathcal{G}\times\text{projects}:\Elig(a,g,p)\}$\;
+\lIf{$\mathcal{C}=\emptyset$}{\Return abstain(\code{no\_eligible\_plan})}
+choose $(g,p)\in\mathcal{C}$ by $(-\mathrm{score},g,p)$ with band and seeded tie-break\;
+build certificates, partition aspects, and attach the requested action\;
+\Return the plan\;
+\end{algorithm}
+
+\begin{algorithm}[ht]
+\caption{Selection of a draft for one slot}\label{alg:select}
+\KwIn{plan $P$, seed $\sigma$, slot $i$, batch fingerprint table}
+\KwOut{a draft or a recorded failure}
+$S\leftarrow$ sample $K$ candidate identifiers by $\sigma$ and $i$\;
+$V\leftarrow\{c\in S:\Valid(P,c)\}$\;
+\If{$V=\emptyset$}{render the canonical fallback; \lIf{the fallback is invalid}{\Return failure}}
+\ForEach{$c\in V$ in increasing $(h(\sigma,i,\text{``select''},\mathrm{cid}(c)),\mathrm{cid}(c))$}{
+  re-render $c$ and check the stored fingerprint\;
+  \lIf{no distinctness constraint or the reservation of its fingerprint succeeds}{\Return the draft}
+}
+\Return failure(\code{variation\_exhausted})\;
+\end{algorithm}
+
+\section{Command-Line Interface}
+
+Table~\ref{tab:cli} summarizes the commands. Every command that reads a batch refuses to proceed on a mismatch of manifest hash, snapshot hash or engine identity, unless \code{--restart} is given to discard the partial run.
+
+\begin{table}[ht]
+\centering
+\caption{Commands of the reference implementation.}\label{tab:cli}
+\begin{tabular}{lp{9.4cm}}
+\toprule
+Command & Effect\\
+\midrule
+snapshot & Freeze the evidence into a hashed snapshot\\
+validate & Check that the memory and the grammar are well formed\\
+plan & Show the plan or the abstention for one recipient and date\\
+generate & Run a batch from a manifest, resumable and parallel\\
+audit & Verify the chain, the accounting identity and ledger agreement\\
+explain & Show the plan, certificates and rule path of one slot\\
+export & Write JSON Lines, text or \code{.eml} drafts\\
+maintain & Write the offline maintenance packet\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{thebibliography}{9}
+\bibitem{kleene1952} S.~C. Kleene. \emph{Introduction to Metamathematics}. North-Holland, Amsterdam, 1952.
+\bibitem{reiterdale2000} E.~Reiter and R.~Dale. \emph{Building Natural Language Generation Systems}. Cambridge University Press, 2000.
+\bibitem{merkle1990} R.~C. Merkle. A certified digital signature. In \emph{Advances in Cryptology: CRYPTO '89}, Lecture Notes in Computer Science 435, pages 218--238. Springer, 1990.
+\bibitem{fips1804} National Institute of Standards and Technology. \emph{Secure Hash Standard (SHS)}. FIPS PUB 180-4, 2015.
+\bibitem{grayreuter1993} J.~Gray and A.~Reuter. \emph{Transaction Processing: Concepts and Techniques}. Morgan Kaufmann, 1993.
+\end{thebibliography}
+
+\end{document}

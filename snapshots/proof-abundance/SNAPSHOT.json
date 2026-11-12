@@ -1,0 +1,22 @@
+{
+  "engine_version": "0.1.0",
+  "files": {
+    "author.toml": "909b53c2200240cdf95abb3c5fd0995e65f7f37d2f659c17de35348de9b79e7f",
+    "evidence.jsonl": "39aa89795e63d80979ded25319bdfd44983667672d992d717ab31fb588ccfeb5",
+    "goals.toml": "944e0e76d18944d9f8ef5bed7287e5115f702210226c407922ecf580ed29a06c",
+    "grammar/common.toml": "d3a44869d0cb3272a02e4b6f25fe90374671300868af0a68388e6bf3e71eed12",
+    "grammar/followup.toml": "64d7e62dcfb198f4f901173e2259c4e4f8e6f8220641f05e18db9ec58a612ed5",
+    "grammar/implications.toml": "ea923cdbaa79dd4a1ec4736074d45505ab499cb0607defa0d5f7f53921003010",
+    "grammar/revision.toml": "a3aa8e869322863eb38e9c125e74eecee5a07d22a0cd52026ac2484ab3152a7a",
+    "grammar/typesetting.toml": "e331126f0a44857289f85fea8d1dd6c0c58dcbf34949f231e28e2e40a9848e2c",
+    "inferences.toml": "e54a010673665c1d74d673d6ae3ec8a05ea3936a7331bdea2634cb7a7bfb13d4",
+    "occasions.toml": "b6e6b00d601f4eab0d2afbeb5bf0302ec19f2b0d71061faa647fa946dd7895bd",
+    "preferences.toml": "804331b5922ae857e103debf3ae75e845c8b85467f18b78606eb989c4dc88a70",
+    "projects.toml": "43604da9ec05fb5c60d392b0a7915ea923a4540711e1b8ae47e7b6b102f1f14a",
+    "recipients.jsonl": "798d681b563e0ddb2511eb07c86b1c23fd9b41c7e9fa42d322f7bdfd31f5f93c",
+    "slots.toml": "743c14fb78bad183b758ea7839ef709e364a6dd6ad1eabffd2a56e7b213a15b6"
+  },
+  "hash": "160489926a9f93dde8faadca3f2e00eac28dc604b1d175fa207c982f8c0e059e",
+  "reference_date": "2026-11-11",
+  "schema_version": 1
+}

@@ -1,0 +1,14 @@
+[batch]
+id = "benchmark"
+mode = "experiment"
+snapshot = "snapshots/proof-abundance"
+seed = 20261111
+reference_date = "2026-11-11"
+candidates_per_slot = 12
+score_band = 0
+require_distinct = true
+
+[slots]
+occasion = "outreach"
+trials = 83334
+scenarios = ["r-ada", "r-ben", "r-chloe", "r-dev", "r-eli", "r-fay", "r-gus", "r-hana", "r-ivan", "r-jo", "r-kim", "r-lee"]

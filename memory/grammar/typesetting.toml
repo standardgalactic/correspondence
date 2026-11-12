@@ -1,0 +1,33 @@
+# Purpose: typesetting_correction. Request action: flag_layout_problem.
+
+rule = [
+  { id = "t-s-layout", slot = "subject", purposes = ["typesetting_correction"], construction = "noun_phrase", text = "A layout check for {title}" },
+  { id = "t-s-flag", slot = "subject", purposes = ["typesetting_correction"], construction = "gerund", text = "Flagging layout problems in {title}" },
+  { id = "t-s-corr", slot = "subject", purposes = ["typesetting_correction"], construction = "noun_phrase", text = "Typesetting corrections for {title}" },
+  { id = "t-s-look", slot = "subject", purposes = ["typesetting_correction"], construction = "gerund", text = "Looking for layout problems in {title}" },
+  { id = "t-s-small", slot = "subject", purposes = ["typesetting_correction"], construction = "noun_phrase", canonical = true, text = "A small typesetting request" },
+
+  { id = "t-r-offer1", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "cite_evidence", asserts = ["recipient_offered_help"], text = "You once offered to help with {offer_topic}, so I thought of you first." },
+  { id = "t-r-offer2", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "cite_evidence", asserts = ["recipient_offered_help"], register = ["warm"], text = "You said you were willing to help with {offer_topic}, and this is exactly that kind of task." },
+  { id = "t-r-offer-because", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "cite_evidence", asserts = ["recipient_offered_help"], follows = ["request"], text = "I am asking you because you once offered to help with {offer_topic}." },
+  { id = "t-r-dl", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "cite_evidence", asserts = ["recipient_downloaded"], text = "You already have a copy of {title}, which makes you an obvious person to ask." },
+  { id = "t-r-plain1", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "state_need", canonical = true, text = "I am looking for a careful reader for a small formatting task." },
+  { id = "t-r-plain2", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "state_need", text = "This is a narrow request that should not take long." },
+  { id = "t-r-plain3", slot = "reason", purposes = ["typesetting_correction"], construction = "statement", move = "state_need", text = "I would like a second pair of eyes on the page layout." },
+
+  { id = "t-c-older", slot = "context", purposes = ["typesetting_correction"], construction = "statement", move = "introduce_project", asserts = ["project_older_essay"], introduces = ["project"], canonical = true, text = "{title} is one of my older essays." },
+  { id = "t-c-older-url", slot = "context", purposes = ["typesetting_correction"], construction = "statement", move = "introduce_project", asserts = ["project_older_essay"], introduces = ["project"], text = "{title} is one of my older essays and can be found at {url}." },
+  { id = "t-c-in-question", slot = "context", purposes = ["typesetting_correction"], construction = "apposition", move = "introduce_project", asserts = ["project_older_essay"], introduces = ["project"], text = "The essay in question is {title}, one of my older ones." },
+  { id = "t-c-writing", slot = "context", purposes = ["typesetting_correction"], construction = "apposition", move = "introduce_project", asserts = ["project_older_essay"], introduces = ["project"], text = "I am writing about {title}, an older essay of mine." },
+
+  { id = "t-q-full-direct", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "direct_question", move = "ask", introduces = ["project"], text = "Would you be willing to look through {title} for {defect} and send me the page numbers where you find them?" },
+  { id = "t-q-full-cond", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], introduces = ["project"], text = "If you have time, I would be grateful if you could skim {title} for {defect} and tell me where they turn up." },
+  { id = "t-q-full-stq", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "statement_question", move = "ask", introduces = ["project"], text = "{title} probably still contains {defect}. Could you point out any you come across?" },
+  { id = "t-q-ana-direct", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "direct_question", move = "ask", needs = ["project"], canonical = true, text = "Would you be willing to look through it for {defect} and send me the page numbers where you find them?" },
+  { id = "t-q-ana-cond", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], needs = ["project"], text = "If you can spare the time, a pass through it looking for {defect} would help a great deal." },
+  { id = "t-q-ana-stq", slot = "request", purposes = ["typesetting_correction"], action = "flag_layout_problem", obligation = "ask_if_able", construction = "statement_question", move = "ask", needs = ["project"], text = "I keep missing {defect} in it. Would you mark any that you spot?" },
+
+  { id = "t-s-url", slot = "support", purposes = ["typesetting_correction"], construction = "statement", move = "point_to_text", text = "The text is at {url}." },
+  { id = "t-s-marginal", slot = "support", purposes = ["typesetting_correction"], construction = "statement", move = "offer_latitude", text = "Any kind of marginal note is fine, and I will sort out the fixes myself." },
+  { id = "t-s-hope", slot = "support", purposes = ["typesetting_correction"], construction = "statement", move = "name_target", text = "Anything of that kind is what I am hoping to catch." },
+]

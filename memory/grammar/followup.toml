@@ -1,0 +1,36 @@
+# Purpose: substantive_followup. Request action: assess_passage.
+
+rule = [
+  { id = "f-s-argument", slot = "subject", purposes = ["substantive_followup"], construction = "noun_phrase", canonical = true, text = "A question about the argument of {title}" },
+  { id = "f-s-reading", slot = "subject", purposes = ["substantive_followup"], construction = "noun_phrase", text = "A reading request for {title}" },
+  { id = "f-s-page", slot = "subject", purposes = ["substantive_followup"], construction = "noun_phrase", text = "Page {locator} of {title}" },
+  { id = "f-s-comment", slot = "subject", purposes = ["substantive_followup"], construction = "noun_phrase", asserts = ["recipient_commented"], text = "Your comment on {title}" },
+  { id = "f-s-passage", slot = "subject", purposes = ["substantive_followup"], construction = "noun_phrase", text = "One passage in {title}" },
+
+  { id = "f-r-comment1", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "cite_evidence", text = "Your comment on page {locator} about {comment_topic} is the reason I am writing." },
+  { id = "f-r-comment2", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "cite_evidence", text = "You commented on {comment_topic}, and that is what prompted this note." },
+  { id = "f-r-thanks", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "thank", follows = ["greeting"], text = "Thank you for the comment on page {locator}." },
+  { id = "f-r-thanksagain", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "thank", follows = ["greeting"], implies = ["prior_exchange"], register = ["warm"], text = "Thanks again for the comment on page {locator}." },
+  { id = "f-r-follow", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "cite_evidence", asserts = ["recipient_commented"], implies = ["prior_exchange"], text = "I am following up on our earlier exchange about {comment_topic}." },
+  { id = "f-r-because", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "cite_evidence", follows = ["request"], text = "I am asking because of your comment on page {locator}." },
+  { id = "f-r-plain1", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "state_need", text = "I am writing to ask for a careful reading of a single argument." },
+  { id = "f-r-plain2", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "state_need", canonical = true, text = "I am looking for one reader's honest reaction to a specific argument." },
+  { id = "f-r-plain3", slot = "reason", purposes = ["substantive_followup"], construction = "statement", move = "state_need", text = "This note asks for a short reading of one section." },
+
+  { id = "f-c-argument", slot = "context", purposes = ["substantive_followup"], construction = "statement", move = "introduce_project", asserts = ["project_in_progress", "project_argument"], introduces = ["project"], canonical = true, text = "{title} is still under revision, and its central claim is {argument}." },
+  { id = "f-c-short", slot = "context", purposes = ["substantive_followup"], construction = "statement", move = "introduce_project", asserts = ["project_in_progress"], introduces = ["project"], text = "{title} is the draft I am currently revising." },
+  { id = "f-c-url", slot = "context", purposes = ["substantive_followup"], construction = "statement", move = "introduce_project", asserts = ["project_in_progress"], introduces = ["project"], text = "{title} is still under revision and is available at {url}." },
+  { id = "f-c-sub", slot = "context", purposes = ["substantive_followup"], construction = "apposition", move = "introduce_project", asserts = ["project_in_progress"], introduces = ["project"], text = "The draft in question is {title}, which is still being revised." },
+
+  { id = "f-q-loc-full", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "direct_question", move = "ask", introduces = ["project"], implies = ["recipient_read_passage"], text = "Could you take another look at page {locator} of {title} and tell me whether the passage says what it should?" },
+  { id = "f-q-loc-ana", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "direct_question", move = "ask", needs = ["project"], implies = ["recipient_read_passage"], text = "Would you take a second look at page {locator} and tell me whether the passage does its job?" },
+  { id = "f-q-loc-cond", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], text = "If you are willing, I would value your view on whether page {locator} makes a convincing case." },
+  { id = "f-q-topic", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "direct_question", move = "ask", text = "Does the passage on {comment_topic} hold up?" },
+  { id = "f-q-plain-full", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "direct_question", move = "ask", introduces = ["project"], text = "Could you read the main argument of {title} and tell me where it fails to convince you?" },
+  { id = "f-q-plain-ana", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "direct_question", move = "ask", needs = ["project"], canonical = true, text = "Would you read its main argument and tell me where it fails to convince you?" },
+  { id = "f-q-plain-cond", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "conditional_invitation", move = "ask", directness = ["gentle"], introduces = ["project"], text = "If you have the time, I would value your view on whether the central claim of {title} holds up." },
+  { id = "f-q-plain-stq", slot = "request", purposes = ["substantive_followup"], action = "assess_passage", obligation = "ask_if_able", construction = "statement_question", move = "ask", needs = ["project"], text = "I suspect the central claim has a weak point. Could you help me find it?" },
+
+  { id = "f-s-url", slot = "support", purposes = ["substantive_followup"], construction = "statement", move = "point_to_text", needs = ["project"], text = "It is available at {url}." },
+  { id = "f-s-blunt", slot = "support", purposes = ["substantive_followup"], construction = "statement", move = "offer_latitude", needs = ["project"], asserts = ["project_in_progress"], text = "Blunt feedback is welcome, since it is still a draft." },
+]

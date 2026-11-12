@@ -1,0 +1,68 @@
+# Project records. URLs and aspect text are drafts to be edited before real use.
+
+[[project]]
+id = "proof-abundance"
+title = "Proof Abundance: Understanding, Attribution, and Reuse"
+short_title = "Proof Abundance"
+url = "https://github.com/standardgalactic/proof-abundance"
+status = "revising"
+kind = "monograph"
+age = "current"
+sources = ["README.md"]
+revision = "v2"
+revised = "2026-11-08"
+[project.aspects]
+argument = "that proofs can become plentiful while understanding, attribution, and reuse remain scarce"
+revision_note = "a rewritten opening chapter"
+defect_kinds = ["misaligned equation numbers", "overfull lines", "broken cross-references"]
+
+[[project]]
+id = "relief-of-explanation"
+title = "The Relief of Explanation"
+short_title = "The Relief of Explanation"
+url = "https://github.com/standardgalactic/relief-of-explanation"
+status = "published"
+kind = "essay"
+age = "older"
+sources = ["relief_of_explanation.tex"]
+[project.aspects]
+argument = "that the feeling of understanding can arrive without explanatory adequacy"
+defect_kinds = ["overfull lines", "inconsistent theorem numbering", "broken cross-references"]
+
+[[project]]
+id = "sufficient-projections"
+title = "Sufficient Projections"
+short_title = "Sufficient Projections"
+url = "https://github.com/standardgalactic/sufficient-projections"
+status = "published"
+kind = "essay"
+age = "older"
+sources = ["sufficient_projections.tex"]
+[project.aspects]
+argument = "that a projection can be sufficient for one policy and insufficient for its revision"
+defect_kinds = ["misaligned equation numbers", "stray spacing in displayed formulas", "overfull lines"]
+
+[[project]]
+id = "geometry-of-scope"
+title = "The Geometry of Scope: Context, Visibility, and Translation Across Formal Systems"
+short_title = "The Geometry of Scope"
+url = "https://github.com/standardgalactic/geometry-of-scope"
+status = "published"
+kind = "essay"
+age = "older"
+sources = ["geometry_of_scope.tex"]
+[project.aspects]
+argument = "that scope can be treated as a geometric object shared across formal systems"
+defect_kinds = ["inconsistent theorem numbering", "broken cross-references", "stray spacing in displayed formulas"]
+
+[[project]]
+id = "use-of-a-proof"
+title = "The Use of a Proof"
+short_title = "The Use of a Proof"
+url = "https://github.com/standardgalactic/portable-warrant"
+status = "planned"
+kind = "monograph"
+age = "current"
+sources = []
+[project.aspects]
+argument = "that a proof circulates as portable warrant"

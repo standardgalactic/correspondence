@@ -1,0 +1,24 @@
+# Rules shared by every purpose. Defaults: register plain and warm, directness direct, language en.
+
+rule = [
+  { id = "g-hello", slot = "greeting", construction = "greeting", canonical = true, text = "Hello {name}," },
+  { id = "g-hi", slot = "greeting", construction = "greeting", register = ["plain"], text = "Hi {name}," },
+  { id = "g-dear", slot = "greeting", construction = "greeting", register = ["warm"], text = "Dear {name}," },
+  { id = "g-greetings", slot = "greeting", construction = "greeting", register = ["plain"], text = "Greetings {name}," },
+
+  { id = "so-best", slot = "signoff", construction = "signoff", canonical = true, text = "Best,\n{author}" },
+  { id = "so-thanks", slot = "signoff", construction = "signoff", move = "thank", register = ["plain"], text = "Thanks,\n{author}" },
+  { id = "so-thankyou", slot = "signoff", construction = "signoff", move = "thank", text = "Thank you,\n{author}" },
+  { id = "so-regards", slot = "signoff", construction = "signoff", register = ["plain"], text = "Regards,\n{author}" },
+  { id = "so-withthanks", slot = "signoff", construction = "signoff", move = "thank", register = ["warm"], text = "With thanks,\n{author}" },
+
+  { id = "c-short", slot = "closing", construction = "statement", move = "scope_reply", canonical = true, text = "A few lines in reply would be plenty." },
+  { id = "c-plaintext", slot = "closing", construction = "statement", move = "scope_reply", text = "Plain text is perfectly fine, and there is no need to format anything." },
+  { id = "c-nodeadline", slot = "closing", construction = "statement", move = "deadline", text = "There is no deadline on this." },
+  { id = "c-thanks", slot = "closing", construction = "statement", move = "thank", needs = ["project"], text = "Thank you for considering it." },
+  { id = "c-spare", slot = "closing", construction = "statement", move = "scope_reply", text = "Whatever you can spare is welcome." },
+  { id = "c-glad", slot = "closing", construction = "statement", move = "warmth", register = ["warm"], text = "I would be glad of your help." },
+  { id = "c-pages", slot = "closing", construction = "statement", move = "scope_reply", purposes = ["typesetting_correction"], text = "A list of page numbers is all I need." },
+  { id = "c-sentence", slot = "closing", construction = "statement", move = "scope_reply", purposes = ["substantive_followup"], text = "A sentence or two is all I need." },
+  { id = "c-reaction", slot = "closing", construction = "statement", move = "scope_reply", purposes = ["share_revision"], text = "Even a one line reaction would help." },
+]

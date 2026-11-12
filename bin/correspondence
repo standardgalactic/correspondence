@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Command interface for the correspondence generator. Run from the project root.
+set -euo pipefail
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$ROOT/engine${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -m corr "$@"

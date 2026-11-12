@@ -1,0 +1,12 @@
+{"id": "r-ada", "display_name": "Ada Fictional", "given_name": "Ada", "language": "en", "fictional": true, "note": "downloaded only"}
+{"id": "r-ben", "display_name": "Ben Fictional", "given_name": "Ben", "language": "en", "fictional": true, "note": "commented on page 14"}
+{"id": "r-chloe", "display_name": "Chloe Fictional", "given_name": "Chloe", "language": "en", "fictional": true, "note": "offered LaTeX help on a different project"}
+{"id": "r-dev", "display_name": "Dev Fictional", "given_name": "Dev", "language": "en", "fictional": true, "note": "offered LaTeX help and downloaded one essay"}
+{"id": "r-eli", "display_name": "Eli Fictional", "given_name": "Eli", "language": "en", "fictional": true, "note": "requested a revision before the revision date"}
+{"id": "r-fay", "display_name": "Fay Fictional", "given_name": "Fay", "language": "en", "fictional": true, "note": "requested a revision after the revision date"}
+{"id": "r-gus", "display_name": "Gus Fictional", "given_name": "Gus", "language": "en", "fictional": true, "note": "comment usable for planning only"}
+{"id": "r-hana", "display_name": "Hana Fictional", "given_name": "Hana", "language": "en", "fictional": true, "note": "commented and has a prior exchange"}
+{"id": "r-ivan", "display_name": "Ivan Fictional", "given_name": "Ivan", "language": "es", "fictional": true, "note": "Spanish language preference"}
+{"id": "r-jo", "display_name": "Jo Fictional", "given_name": "Jo", "language": "en", "fictional": true, "note": "name only"}
+{"id": "r-kim", "display_name": "Kim Fictional", "given_name": "Kim", "language": "en", "fictional": true, "note": "commented but asked not to be contacted"}
+{"id": "r-lee", "display_name": "Lee Fictional", "given_name": "Lee", "language": "en", "fictional": true, "note": "commented and offered LaTeX help"}

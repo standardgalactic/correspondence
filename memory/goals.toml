@@ -1,0 +1,55 @@
+# Project goals. Conditions use the small declarative evaluator in engine/corr/rules.py.
+
+[[goal]]
+id = "typeset-correction"
+purpose = "typesetting_correction"
+projects = ["relief-of-explanation", "sufficient-projections", "geometry-of-scope"]
+request = "flag_layout_problem"
+priority = 10
+active_from = "2026-10-01"
+active_to = "2027-06-30"
+foreground = ["title", "defect_kinds"]
+optional = ["url"]
+excluded = ["argument", "revision_note"]
+requires = { all = [
+  { in = ["$project.status", ["published", "revising"]] },
+  { has = { predicate = "offered_to_help_with", value_in = ["LaTeX", "typesetting", "layout"], use = "plan", bind = "offer" } },
+] }
+disqualify = { has = { predicate = "asked_not_to_contact", use = "plan" } }
+
+[[goal]]
+id = "substantive-followup"
+purpose = "substantive_followup"
+projects = ["proof-abundance"]
+request = "assess_passage"
+priority = 20
+active_from = "2026-10-01"
+active_to = "2027-06-30"
+foreground = ["title", "argument"]
+optional = ["url"]
+excluded = ["defect_kinds", "revision_note"]
+requires = { all = [
+  { in = ["$project.status", ["revising"]] },
+  { has = { predicate = "commented_on", project = "$project", use = "plan", bind = "comment" } },
+] }
+disqualify = { has = { predicate = "asked_not_to_contact", use = "plan" } }
+
+[[goal]]
+id = "share-revision"
+purpose = "share_revision"
+projects = ["proof-abundance"]
+request = "review_revision"
+priority = 15
+active_from = "2026-10-01"
+active_to = "2027-06-30"
+foreground = ["title", "revision_note"]
+optional = ["url"]
+excluded = ["argument", "defect_kinds"]
+requires = { all = [
+  { has = { predicate = "requested_revision", project = "$project", use = "plan", bind = "req" } },
+  { date_gt = ["$project.revised", "$req.observed"] },
+] }
+disqualify = { any = [
+  { has = { predicate = "asked_not_to_contact", use = "plan" } },
+  { has = { predicate = "received_revision", project = "$project", value_eq = "$project.revision", use = "plan" } },
+] }
